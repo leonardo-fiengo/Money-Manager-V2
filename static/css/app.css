@@ -433,6 +433,75 @@ table tr:hover td { background: #fbfcfd; }
     background: #fff;
     padding: 8px;
 }
+.logo-upload-field {
+    align-content: start;
+}
+.logo-upload-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 60px;
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: #fff;
+    padding: 9px 12px;
+    cursor: pointer;
+    transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+.logo-upload-card:hover,
+.logo-upload-card:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(20, 125, 100, 0.14);
+}
+.logo-upload-input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    min-height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+.logo-upload-preview {
+    display: inline-grid;
+    flex: 0 0 auto;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-soft);
+    color: var(--accent);
+    font-weight: 850;
+}
+.logo-upload-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
+    padding: 4px;
+}
+.logo-upload-copy {
+    display: grid;
+    min-width: 0;
+    gap: 3px;
+}
+.logo-upload-copy strong,
+.logo-upload-copy small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.logo-upload-copy strong {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 800;
+}
+.logo-upload-copy small {
+    color: var(--muted);
+    font-size: 12px;
+}
 .merchant-logo[src=""],
 .merchant-logo:not([src]) { display: none; }
 .merchant-logo[src=""] + .logo-fallback,
@@ -833,6 +902,104 @@ label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weig
     background: var(--accent);
     box-shadow: 5px 0 0 var(--accent), 10px 0 0 var(--accent);
 }
+.modern-date-control {
+    position: relative;
+}
+.modern-date-control input {
+    cursor: pointer;
+}
+.modern-date-picker {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 35;
+    display: none;
+    width: min(310px, calc(100vw - 36px));
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: var(--shadow);
+    padding: 12px;
+}
+.modern-date-control.open .modern-date-picker {
+    display: grid;
+    gap: 10px;
+}
+.modern-date-header {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: center;
+    gap: 8px;
+}
+.modern-date-title {
+    overflow: hidden;
+    text-align: center;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.modern-date-nav,
+.modern-date-today,
+.modern-date-day {
+    min-height: 34px;
+    border-radius: 7px;
+    padding: 0;
+}
+.modern-date-nav {
+    background: var(--panel-soft);
+    border-color: var(--line);
+    color: var(--text);
+    font-size: 20px;
+    line-height: 1;
+}
+.modern-date-nav:hover {
+    background: var(--accent-soft);
+    border-color: #b8dfd3;
+    color: var(--accent-hover);
+}
+.modern-date-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+}
+.modern-date-weekday {
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 800;
+    text-align: center;
+    text-transform: uppercase;
+}
+.modern-date-empty {
+    min-height: 34px;
+}
+.modern-date-day {
+    background: #fff;
+    border-color: transparent;
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 750;
+}
+.modern-date-day:hover,
+.modern-date-day.today {
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+}
+.modern-date-day.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+}
+.modern-date-today {
+    width: 100%;
+    background: var(--panel-soft);
+    border-color: var(--line);
+    color: var(--accent);
+    font-size: 13px;
+}
+.modern-date-today:hover {
+    background: var(--accent-soft);
+    border-color: #b8dfd3;
+    color: var(--accent-hover);
+}
 input, select, button, .button {
     min-height: 40px;
     border: 1px solid var(--line-strong);
@@ -1031,6 +1198,22 @@ button:hover, .button:hover {
 }
 .dashboard-panel-list h2 {
     margin-bottom: 2px;
+}
+.dashboard-panel-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+.dashboard-sort-form {
+    margin: 0;
+}
+.dashboard-sort-form select {
+    min-width: 118px;
+    min-height: 34px;
+    padding: 6px 32px 6px 10px;
+    font-size: 13px;
+    font-weight: 750;
 }
 .dashboard-list {
     display: grid;

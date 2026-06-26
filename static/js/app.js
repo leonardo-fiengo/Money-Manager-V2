@@ -154,8 +154,210 @@ function enhanceSelect(select) {
     select.dispatchEvent(new Event("change"));
 }
 
+const datePickerState = {
+    active: null,
+};
+
+function parseIsoDate(value) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+    if (!match) {
+        return null;
+    }
+    return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
+
+function dateToIso(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+}
+
+function formatDateLabel(value) {
+    const date = parseIsoDate(value);
+    if (!date) {
+        return "";
+    }
+    return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+    });
+}
+
+function closeDatePicker(except = null) {
+    if (datePickerState.active && datePickerState.active !== except) {
+        datePickerState.active.classList.remove("open");
+        const input = datePickerState.active.querySelector("input[aria-haspopup='dialog']");
+        if (input) {
+            input.setAttribute("aria-expanded", "false");
+        }
+    }
+    datePickerState.active = except;
+}
+
+function renderDatePicker(wrapper, input, hidden, viewDate) {
+    const picker = wrapper.querySelector(".modern-date-picker");
+    const title = picker.querySelector(".modern-date-title");
+    const grid = picker.querySelector(".modern-date-days");
+    const selectedDate = parseIsoDate(hidden.value);
+    const today = new Date();
+    const firstDay = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
+    const monthStartOffset = firstDay.getDay();
+    const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+
+    wrapper.dataset.viewYear = String(viewDate.getFullYear());
+    wrapper.dataset.viewMonth = String(viewDate.getMonth());
+    title.textContent = viewDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+    grid.innerHTML = "";
+
+    ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].forEach((day) => {
+        const label = document.createElement("span");
+        label.className = "modern-date-weekday";
+        label.textContent = day;
+        grid.appendChild(label);
+    });
+
+    for (let index = 0; index < monthStartOffset; index += 1) {
+        const spacer = document.createElement("span");
+        spacer.className = "modern-date-empty";
+        grid.appendChild(spacer);
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+        const optionDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+        const optionIso = dateToIso(optionDate);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "modern-date-day";
+        button.textContent = String(day);
+        button.classList.toggle("selected", selectedDate && optionIso === dateToIso(selectedDate));
+        button.classList.toggle("today", optionIso === dateToIso(today));
+        button.addEventListener("click", () => {
+            hidden.value = optionIso;
+            input.value = formatDateLabel(optionIso);
+            input.dataset.isoValue = optionIso;
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            closeDatePicker();
+        });
+        grid.appendChild(button);
+    }
+}
+
+function enhanceDateInput(input) {
+    const wrapper = input.closest(".date-control");
+    if (!wrapper || wrapper.classList.contains("modern-date-control")) {
+        return;
+    }
+
+    const hidden = document.createElement("input");
+    const initialValue = input.value;
+    hidden.type = "hidden";
+    hidden.name = input.name;
+    hidden.value = initialValue;
+
+    input.removeAttribute("name");
+    input.type = "text";
+    input.value = formatDateLabel(initialValue);
+    input.dataset.isoValue = initialValue;
+    input.autocomplete = "off";
+    input.inputMode = "none";
+    input.placeholder = "Select date";
+    input.readOnly = true;
+    input.setAttribute("aria-haspopup", "dialog");
+    input.setAttribute("aria-expanded", "false");
+
+    const picker = document.createElement("div");
+    picker.className = "modern-date-picker";
+    picker.setAttribute("role", "dialog");
+    picker.setAttribute("aria-label", "Choose date");
+    picker.innerHTML = `
+        <div class="modern-date-header">
+            <button type="button" class="modern-date-nav" data-date-nav="-1" aria-label="Previous month">&lsaquo;</button>
+            <strong class="modern-date-title"></strong>
+            <button type="button" class="modern-date-nav" data-date-nav="1" aria-label="Next month">&rsaquo;</button>
+        </div>
+        <div class="modern-date-days"></div>
+        <button type="button" class="modern-date-today">Today</button>
+    `;
+
+    wrapper.classList.add("modern-date-control");
+    wrapper.appendChild(hidden);
+    wrapper.appendChild(picker);
+
+    function currentViewDate() {
+        const selected = parseIsoDate(hidden.value);
+        return selected || new Date();
+    }
+
+    function openPicker() {
+        closeDatePicker(wrapper);
+        wrapper.classList.add("open");
+        input.setAttribute("aria-expanded", "true");
+        renderDatePicker(wrapper, input, hidden, currentViewDate());
+    }
+
+    picker.querySelectorAll("[data-date-nav]").forEach((button) => {
+        button.addEventListener("click", () => {
+            const year = Number(wrapper.dataset.viewYear);
+            const month = Number(wrapper.dataset.viewMonth);
+            const nextView = new Date(year, month + Number(button.dataset.dateNav), 1);
+            renderDatePicker(wrapper, input, hidden, nextView);
+        });
+    });
+
+    picker.querySelector(".modern-date-today").addEventListener("click", () => {
+        const todayIso = dateToIso(new Date());
+        hidden.value = todayIso;
+        input.value = formatDateLabel(todayIso);
+        input.dataset.isoValue = todayIso;
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+        closeDatePicker();
+    });
+
+    input.addEventListener("focus", openPicker);
+    input.addEventListener("click", openPicker);
+    input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeDatePicker();
+            input.blur();
+        }
+    });
+}
+
 document.querySelectorAll("[data-icon]").forEach((element) => {
     element.innerHTML = iconMarkup(element.dataset.icon);
+});
+
+document.querySelectorAll(".date-control input[type='date']").forEach((input) => {
+    enhanceDateInput(input);
+});
+
+document.querySelectorAll("[data-logo-upload]").forEach((input) => {
+    input.addEventListener("change", () => {
+        const file = input.files && input.files[0];
+        const field = input.closest(".logo-upload-field");
+        const preview = field ? field.querySelector("[data-logo-preview]") : null;
+        const label = field ? field.querySelector("[data-logo-label]") : null;
+        const filename = field ? field.querySelector("[data-logo-filename]") : null;
+        if (!file) {
+            return;
+        }
+
+        if (label) {
+            label.textContent = "Logo selected";
+        }
+        if (filename) {
+            filename.textContent = file.name;
+        }
+        if (preview && file.type.startsWith("image/")) {
+            const reader = new FileReader();
+            reader.addEventListener("load", () => {
+                preview.innerHTML = `<img src="${reader.result}" alt="">`;
+            });
+            reader.readAsDataURL(file);
+        }
+    });
 });
 
 document.querySelectorAll("[data-visual-select]").forEach((select) => {
@@ -167,6 +369,9 @@ document.querySelectorAll("[data-visual-select]").forEach((select) => {
 document.addEventListener("click", (event) => {
     if (!event.target.closest(".enhanced-select")) {
         closeEnhancedSelects();
+    }
+    if (!event.target.closest(".modern-date-control")) {
+        closeDatePicker();
     }
 });
 

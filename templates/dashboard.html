@@ -57,7 +57,15 @@
 
 <section class="split dashboard-lists">
     <div class="dashboard-accounts dashboard-panel-list">
-        <h2>Accounts</h2>
+        <div class="dashboard-panel-heading">
+            <h2>Accounts</h2>
+            <form class="dashboard-sort-form" method="get">
+                <select name="account_sort" aria-label="Accounts order" onchange="this.form.submit()">
+                    <option value="name" {% if account_sort == 'name' %}selected{% endif %}>Name</option>
+                    <option value="amount" {% if account_sort == 'amount' %}selected{% endif %}>Amount</option>
+                </select>
+            </form>
+        </div>
         <div class="dashboard-list">
             {% for account in accounts %}
             <a class="dashboard-row account-row" href="{{ url_for('transactions.index', account_id=account.id) }}">

@@ -4,16 +4,34 @@
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
 <form class="form" method="post" enctype="multipart/form-data">
     <label>Name <input name="name" value="{{ merchant.name if merchant else '' }}" required></label>
-    <label>Logo upload <input type="file" name="logo_file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg"></label>
-    <label>Logo filename or URL <input name="logo" value="{{ merchant.logo if merchant else '' }}" placeholder="chatgpt.png or https://..."></label>
+    <label class="logo-upload-field">Logo
+        <span class="logo-upload-card">
+            <input class="logo-upload-input" type="file" name="logo_file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg" data-logo-upload>
+            <span class="logo-upload-preview" data-logo-preview>
+                {% if merchant and merchant.logo %}
+                <img src="{{ merchant.logo }}" alt="">
+                {% else %}
+                <span>{{ (merchant.name[:1] if merchant and merchant.name else "M") }}</span>
+                {% endif %}
+            </span>
+            <span class="logo-upload-copy">
+                <strong data-logo-label>{{ "Replace logo" if merchant and merchant.logo else "Upload logo" }}</strong>
+                <small data-logo-filename>PNG, JPG, WEBP, GIF, or SVG</small>
+            </span>
+        </span>
+    </label>
     <label>Website <input name="website" value="{{ merchant.website if merchant else '' }}"></label>
-    <label>Default Category <input name="default_category" value="{{ merchant.default_category if merchant else '' }}"></label>
+    <label>Default Category
+        <span class="select-with-visual">
+            <span class="select-leading" aria-hidden="true"></span>
+            <select name="default_category" data-visual-select>
+                <option value="" data-label="None" data-kind="none">None</option>
+                {% for category in categories %}
+                <option value="{{ category.name }}" data-label="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}" {% if merchant and merchant.default_category == category.name %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </span>
+    </label>
     <button>Save</button>
 </form>
-{% if merchant and merchant.logo %}
-<section>
-    <h2>Current Logo</h2>
-    <img class="merchant-logo-preview" src="{{ merchant.logo }}" alt="{{ merchant.name }}">
-</section>
-{% endif %}
 {% endblock %}

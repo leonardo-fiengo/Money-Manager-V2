@@ -1,6 +1,7 @@
 from flask import Blueprint, current_app, redirect, render_template, request, url_for
 from werkzeug.utils import secure_filename
 
+from money_manager.services.categories import list_categories
 from money_manager.services.merchants import create_merchant, get_merchant, list_merchants, update_merchant
 
 
@@ -19,15 +20,15 @@ def _logo_value(existing_logo=None):
         uploaded.save(target)
         return url_for("static", filename=f"uploads/merchants/{filename}")
 
-    logo = (request.form.get("logo") or "").strip()
-    if not logo:
-        return existing_logo
-    logo = logo.strip('"').strip("'")
-    if logo.startswith(("http://", "https://", "/")):
-        return logo
-    if "\\" in logo or "/" in logo:
-        logo = logo.replace("\\", "/").split("/")[-1]
-    return url_for("static", filename=f"uploads/merchants/{logo}")
+    return existing_logo
+
+
+def _form_context(merchant=None, error=None):
+    return {
+        "merchant": merchant,
+        "categories": list_categories(),
+        "error": error,
+    }
 
 
 @bp.route("/")
@@ -42,8 +43,8 @@ def new():
             create_merchant(request.form["name"], _logo_value(), request.form.get("website"), request.form.get("default_category"))
             return redirect(url_for("merchants.index"))
         except ValueError as error:
-            return render_template("merchants/form.html", merchant=request.form, error=str(error)), 400
-    return render_template("merchants/form.html", merchant=None)
+            return render_template("merchants/form.html", **_form_context(request.form, str(error))), 400
+    return render_template("merchants/form.html", **_form_context())
 
 
 @bp.route("/<int:merchant_id>/edit", methods=("GET", "POST"))
@@ -54,5 +55,6 @@ def edit(merchant_id):
             update_merchant(merchant_id, request.form["name"], _logo_value(merchant["logo"]), request.form.get("website"), request.form.get("default_category"))
             return redirect(url_for("merchants.index"))
         except ValueError as error:
-            return render_template("merchants/form.html", merchant=request.form, error=str(error)), 400
-    return render_template("merchants/form.html", merchant=merchant)
+            form_merchant = dict(request.form, logo=merchant["logo"])
+            return render_template("merchants/form.html", **_form_context(form_merchant, str(error))), 400
+    return render_template("merchants/form.html", **_form_context(merchant))
