@@ -174,6 +174,28 @@ class MoneyLogicTest(unittest.TestCase):
                 }
             )
 
+    def test_paypal_transfer_page_creates_transfer(self):
+        paypal = self.account("PayPal")
+        revolut = self.account("Revolut")
+        client = self.app.test_client()
+
+        response = client.post(
+            "/paypal-transfer/",
+            data={
+                "destination_account_id": revolut["id"],
+                "transfer_amount": "98.25",
+            },
+            follow_redirects=False,
+        )
+        transactions = list_transactions(include_pending=True)
+
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(len(transactions), 1)
+        self.assertEqual(transactions[0]["type"], "transfer")
+        self.assertEqual(transactions[0]["amount"], 98.25)
+        self.assertEqual(transactions[0]["account_id"], paypal["id"])
+        self.assertEqual(transactions[0]["destination_account_id"], revolut["id"])
+
     def test_categories_budgets_and_backup_export(self):
         category_id = create_category(
             {

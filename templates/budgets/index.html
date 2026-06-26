@@ -13,13 +13,21 @@
 
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
 <form class="form" method="post">
-    <label>Month <input type="month" name="month" value="{{ month }}" required></label>
+    <label>Month
+        <span class="month-control">
+            <span class="date-icon" aria-hidden="true"></span>
+            <input type="month" name="month" value="{{ month }}" required>
+        </span>
+    </label>
     <label>Category
-        <select name="category_id" required>
-            {% for category in categories %}
-            <option value="{{ category.id }}">{{ category.name }}</option>
-            {% endfor %}
-        </select>
+        <span class="select-with-visual">
+            <span class="select-leading" aria-hidden="true"></span>
+            <select name="category_id" data-visual-select required>
+                {% for category in categories %}
+                <option value="{{ category.id }}" data-label="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}">{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </span>
     </label>
     <label>Amount <input type="number" min="0" step="0.01" name="amount" required></label>
     <button>Save Budget</button>

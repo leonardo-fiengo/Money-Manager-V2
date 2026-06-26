@@ -650,6 +650,32 @@ table tr:hover td { background: #fbfcfd; }
     font-size: 20px;
     line-height: 1;
 }
+.paypal-add-transfer {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) minmax(220px, 0.9fr) minmax(150px, 0.4fr);
+    align-items: end;
+    gap: 12px;
+    border-top: 1px solid var(--line);
+    padding-top: 14px;
+}
+.paypal-add-transfer > span {
+    display: grid;
+    align-self: center;
+    gap: 3px;
+}
+.paypal-add-transfer > span strong {
+    font-size: 15px;
+}
+.paypal-add-transfer > span small {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 750;
+}
+.paypal-add-transfer button:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
 .category-dot {
     display: inline-block;
     width: 12px;
@@ -774,7 +800,8 @@ label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weig
 }
 .select-with-logo,
 .select-with-visual,
-.date-control {
+.date-control,
+.month-control {
     position: relative;
     display: block;
 }
@@ -808,7 +835,8 @@ label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weig
 }
 .select-with-logo select,
 .select-with-visual select,
-.date-control input {
+.date-control input,
+.month-control input {
     width: 100%;
     padding-left: 42px;
 }
@@ -1000,7 +1028,8 @@ label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weig
 .modern-date-control {
     position: relative;
 }
-.modern-date-control input {
+.modern-date-control input,
+.modern-month-control input {
     cursor: pointer;
 }
 .modern-date-picker {
@@ -1094,6 +1123,75 @@ label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weig
     background: var(--accent-soft);
     border-color: #b8dfd3;
     color: var(--accent-hover);
+}
+.modern-month-control {
+    position: relative;
+}
+.modern-month-picker {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 35;
+    display: none;
+    width: min(300px, calc(100vw - 36px));
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: var(--shadow);
+    padding: 12px;
+}
+.modern-month-control.open .modern-month-picker {
+    display: grid;
+    gap: 10px;
+}
+.modern-month-header {
+    display: grid;
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    align-items: center;
+    gap: 8px;
+}
+.modern-month-title {
+    text-align: center;
+}
+.modern-month-nav,
+.modern-month-option {
+    min-height: 34px;
+    border-radius: 7px;
+    padding: 0;
+}
+.modern-month-nav {
+    background: var(--panel-soft);
+    border-color: var(--line);
+    color: var(--text);
+    font-size: 20px;
+    line-height: 1;
+}
+.modern-month-nav:hover {
+    background: var(--accent-soft);
+    border-color: #b8dfd3;
+    color: var(--accent-hover);
+}
+.modern-month-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+.modern-month-option {
+    background: #fff;
+    border-color: var(--line);
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 750;
+}
+.modern-month-option:hover,
+.modern-month-option.current {
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+}
+.modern-month-option.selected {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
 }
 input, select, button, .button {
     min-height: 40px;
@@ -1223,6 +1321,9 @@ button:hover, .button:hover {
     .paypal-flow i {
         min-height: 20px;
         transform: rotate(90deg);
+    }
+    .paypal-add-transfer {
+        grid-template-columns: 1fr;
     }
 }
 

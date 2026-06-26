@@ -4,6 +4,7 @@
     <h1>PayPal Fee Calculator</h1>
 </div>
 
+{% if error %}<p class="form-error">{{ error }}</p>{% endif %}
 <section class="paypal-tool" data-paypal-calculator>
     <div class="paypal-inputs">
         <label>Amount
@@ -42,5 +43,24 @@
         <i aria-hidden="true"></i>
         <span><strong data-paypal-flow-net>&euro;0.00</strong><small>Received</small></span>
     </div>
+
+    <form class="paypal-add-transfer" method="post" data-paypal-transfer-form>
+        <input type="hidden" name="transfer_amount" value="0.00" data-paypal-transfer-amount>
+        <span>
+            <strong>Add transfer</strong>
+            <small>{% if source_account %}From {{ source_account.name }}{% else %}PayPal account missing{% endif %}</small>
+        </span>
+        <label>To
+            <span class="select-with-visual">
+                <span class="select-leading" aria-hidden="true"></span>
+                <select name="destination_account_id" data-visual-select required>
+                    {% for account in destination_accounts %}
+                    <option value="{{ account.id }}" data-label="{{ account.name }}" data-kind="logo" data-logo="{{ account.logo or '' }}">{{ account.name }}</option>
+                    {% endfor %}
+                </select>
+            </span>
+        </label>
+        <button type="submit" data-paypal-add-transfer {% if not source_account or not destination_accounts %}disabled{% endif %}>Add transfer</button>
+    </form>
 </section>
 {% endblock %}

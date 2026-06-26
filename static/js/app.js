@@ -158,6 +158,10 @@ const datePickerState = {
     active: null,
 };
 
+const monthPickerState = {
+    active: null,
+};
+
 function parseIsoDate(value) {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
     if (!match) {
@@ -185,6 +189,29 @@ function formatDateLabel(value) {
     });
 }
 
+function parseMonthValue(value) {
+    const match = /^(\d{4})-(\d{2})$/.exec(value || "");
+    if (!match) {
+        return null;
+    }
+    return new Date(Number(match[1]), Number(match[2]) - 1, 1);
+}
+
+function monthToValue(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(value) {
+    const date = parseMonthValue(value);
+    if (!date) {
+        return "";
+    }
+    return date.toLocaleDateString("en-US", {
+        month: "long",
+        year: "numeric",
+    });
+}
+
 function closeDatePicker(except = null) {
     if (datePickerState.active && datePickerState.active !== except) {
         datePickerState.active.classList.remove("open");
@@ -194,6 +221,17 @@ function closeDatePicker(except = null) {
         }
     }
     datePickerState.active = except;
+}
+
+function closeMonthPicker(except = null) {
+    if (monthPickerState.active && monthPickerState.active !== except) {
+        monthPickerState.active.classList.remove("open");
+        const input = monthPickerState.active.querySelector("input[aria-haspopup='dialog']");
+        if (input) {
+            input.setAttribute("aria-expanded", "false");
+        }
+    }
+    monthPickerState.active = except;
 }
 
 function renderDatePicker(wrapper, input, hidden, viewDate) {
@@ -242,6 +280,36 @@ function renderDatePicker(wrapper, input, hidden, viewDate) {
         });
         grid.appendChild(button);
     }
+}
+
+function renderMonthPicker(wrapper, input, hidden, year) {
+    const picker = wrapper.querySelector(".modern-month-picker");
+    const title = picker.querySelector(".modern-month-title");
+    const grid = picker.querySelector(".modern-month-grid");
+    const selectedMonth = hidden.value;
+    const currentMonth = monthToValue(new Date());
+
+    wrapper.dataset.viewYear = String(year);
+    title.textContent = String(year);
+    grid.innerHTML = "";
+
+    Array.from({ length: 12 }, (_, index) => new Date(year, index, 1)).forEach((monthDate) => {
+        const value = monthToValue(monthDate);
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "modern-month-option";
+        button.textContent = monthDate.toLocaleDateString("en-US", { month: "short" });
+        button.classList.toggle("selected", value === selectedMonth);
+        button.classList.toggle("current", value === currentMonth);
+        button.addEventListener("click", () => {
+            hidden.value = value;
+            input.value = formatMonthLabel(value);
+            input.dataset.monthValue = value;
+            input.dispatchEvent(new Event("change", { bubbles: true }));
+            closeMonthPicker();
+        });
+        grid.appendChild(button);
+    });
 }
 
 function enhanceDateInput(input) {
@@ -325,12 +393,84 @@ function enhanceDateInput(input) {
     });
 }
 
+function enhanceMonthInput(input) {
+    const wrapper = input.closest(".month-control");
+    if (!wrapper || wrapper.classList.contains("modern-month-control")) {
+        return;
+    }
+
+    const hidden = document.createElement("input");
+    const initialValue = input.value;
+    hidden.type = "hidden";
+    hidden.name = input.name;
+    hidden.value = initialValue;
+
+    input.removeAttribute("name");
+    input.type = "text";
+    input.value = formatMonthLabel(initialValue);
+    input.dataset.monthValue = initialValue;
+    input.autocomplete = "off";
+    input.inputMode = "none";
+    input.placeholder = "Select month";
+    input.readOnly = true;
+    input.setAttribute("aria-haspopup", "dialog");
+    input.setAttribute("aria-expanded", "false");
+
+    const picker = document.createElement("div");
+    picker.className = "modern-month-picker";
+    picker.setAttribute("role", "dialog");
+    picker.setAttribute("aria-label", "Choose month");
+    picker.innerHTML = `
+        <div class="modern-month-header">
+            <button type="button" class="modern-month-nav" data-month-nav="-1" aria-label="Previous year">&lsaquo;</button>
+            <strong class="modern-month-title"></strong>
+            <button type="button" class="modern-month-nav" data-month-nav="1" aria-label="Next year">&rsaquo;</button>
+        </div>
+        <div class="modern-month-grid"></div>
+    `;
+
+    wrapper.classList.add("modern-month-control");
+    wrapper.appendChild(hidden);
+    wrapper.appendChild(picker);
+
+    function currentViewYear() {
+        const selected = parseMonthValue(hidden.value);
+        return selected ? selected.getFullYear() : new Date().getFullYear();
+    }
+
+    function openPicker() {
+        closeMonthPicker(wrapper);
+        wrapper.classList.add("open");
+        input.setAttribute("aria-expanded", "true");
+        renderMonthPicker(wrapper, input, hidden, currentViewYear());
+    }
+
+    picker.querySelectorAll("[data-month-nav]").forEach((button) => {
+        button.addEventListener("click", () => {
+            renderMonthPicker(wrapper, input, hidden, Number(wrapper.dataset.viewYear) + Number(button.dataset.monthNav));
+        });
+    });
+
+    input.addEventListener("focus", openPicker);
+    input.addEventListener("click", openPicker);
+    input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeMonthPicker();
+            input.blur();
+        }
+    });
+}
+
 document.querySelectorAll("[data-icon]").forEach((element) => {
     element.innerHTML = iconMarkup(element.dataset.icon);
 });
 
 document.querySelectorAll(".date-control input[type='date']").forEach((input) => {
     enhanceDateInput(input);
+});
+
+document.querySelectorAll(".month-control input[type='month']").forEach((input) => {
+    enhanceMonthInput(input);
 });
 
 document.querySelectorAll("[data-logo-upload]").forEach((input) => {
@@ -375,6 +515,9 @@ document.querySelectorAll("[data-paypal-calculator]").forEach((calculator) => {
     const sentOutput = calculator.querySelector("[data-paypal-sent]");
     const flowFeeOutput = calculator.querySelector("[data-paypal-flow-fee]");
     const flowNetOutput = calculator.querySelector("[data-paypal-flow-net]");
+    const transferAmountInput = calculator.querySelector("[data-paypal-transfer-amount]");
+    const addTransferButton = calculator.querySelector("[data-paypal-add-transfer]");
+    const canAddTransfer = addTransferButton ? !addTransferButton.disabled : false;
 
     function money(value) {
         return `€${Number(value || 0).toLocaleString("en-US", {
@@ -400,6 +543,12 @@ document.querySelectorAll("[data-paypal-calculator]").forEach((calculator) => {
         sentOutput.textContent = money(amount);
         flowFeeOutput.textContent = money(fee);
         flowNetOutput.textContent = money(net);
+        if (transferAmountInput) {
+            transferAmountInput.value = net.toFixed(2);
+        }
+        if (addTransferButton) {
+            addTransferButton.disabled = !canAddTransfer || net <= 0;
+        }
     }
 
     amountInput.addEventListener("input", updatePayPalCalculator);
@@ -421,6 +570,9 @@ document.addEventListener("click", (event) => {
     }
     if (!event.target.closest(".modern-date-control")) {
         closeDatePicker();
+    }
+    if (!event.target.closest(".modern-month-control")) {
+        closeMonthPicker();
     }
 });
 
