@@ -555,6 +555,101 @@ table tr:hover td { background: #fbfcfd; }
 }
 .loan-pill-lent_out { background: #daf5e8; color: #128051; }
 .loan-pill-borrowed { background: var(--danger-soft); color: #c0392b; }
+.paypal-tool {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 0.72fr);
+    gap: 16px;
+    align-items: stretch;
+}
+.paypal-inputs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 14px;
+}
+.paypal-quick-amounts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-self: end;
+}
+.paypal-quick-amounts button {
+    min-height: 34px;
+    border-color: var(--line);
+    background: var(--panel-soft);
+    color: var(--accent);
+    padding: 6px 12px;
+    font-size: 13px;
+}
+.paypal-quick-amounts button:hover {
+    border-color: #b8dfd3;
+    background: var(--accent-soft);
+    color: var(--accent-hover);
+}
+.paypal-result {
+    display: grid;
+    align-content: center;
+    gap: 6px;
+    min-height: 152px;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    padding: 18px;
+}
+.paypal-result span,
+.paypal-result small {
+    color: rgba(255, 255, 255, 0.82);
+    font-weight: 750;
+}
+.paypal-result strong {
+    font-size: clamp(34px, 5vw, 54px);
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+}
+.paypal-result small {
+    font-size: 13px;
+}
+.paypal-flow {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr) 34px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--panel-soft);
+    padding: 10px;
+}
+.paypal-flow span {
+    display: grid;
+    gap: 3px;
+    min-width: 0;
+    border-radius: 7px;
+    background: #fff;
+    padding: 10px;
+}
+.paypal-flow strong {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+}
+.paypal-flow small {
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 750;
+}
+.paypal-flow i {
+    display: inline-grid;
+    place-items: center;
+    color: var(--muted);
+    font-style: normal;
+}
+.paypal-flow i::before {
+    content: "→";
+    font-size: 20px;
+    line-height: 1;
+}
 .category-dot {
     display: inline-block;
     width: 12px;
@@ -1105,6 +1200,7 @@ button:hover, .button:hover {
     }
     .chart-grid { grid-template-columns: 1fr; }
     .metrics-band { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .paypal-tool { grid-template-columns: 1fr; }
 }
 @media (max-width: 720px) {
     .page { padding: 22px 14px 42px; }
@@ -1120,6 +1216,14 @@ button:hover, .button:hover {
     .metrics-band { grid-template-columns: 1fr; }
     .split { grid-template-columns: 1fr; }
     .brand { font-size: 16px; }
+    .paypal-inputs { grid-template-columns: 1fr; }
+    .paypal-flow {
+        grid-template-columns: 1fr;
+    }
+    .paypal-flow i {
+        min-height: 20px;
+        transform: rotate(90deg);
+    }
 }
 
 .converted-amount { color: var(--muted); font-size: 12px; white-space: nowrap; }

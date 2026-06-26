@@ -366,6 +366,55 @@ document.querySelectorAll("[data-visual-select]").forEach((select) => {
     enhanceSelect(select);
 });
 
+document.querySelectorAll("[data-paypal-calculator]").forEach((calculator) => {
+    const amountInput = calculator.querySelector("[data-paypal-amount]");
+    const modeSelect = calculator.querySelector("[data-paypal-mode]");
+    const netOutput = calculator.querySelector("[data-paypal-net]");
+    const feeOutput = calculator.querySelector("[data-paypal-fee]");
+    const rateOutput = calculator.querySelector("[data-paypal-rate]");
+    const sentOutput = calculator.querySelector("[data-paypal-sent]");
+    const flowFeeOutput = calculator.querySelector("[data-paypal-flow-fee]");
+    const flowNetOutput = calculator.querySelector("[data-paypal-flow-net]");
+
+    function money(value) {
+        return `€${Number(value || 0).toLocaleString("en-US", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })}`;
+    }
+
+    function selectedRate() {
+        const option = modeSelect.options[modeSelect.selectedIndex];
+        return Number(option ? option.dataset.rate : 0) || 0;
+    }
+
+    function updatePayPalCalculator() {
+        const amount = Math.max(0, Number(amountInput.value || 0));
+        const rate = selectedRate();
+        const fee = Math.round(amount * (rate / 100) * 100) / 100;
+        const net = Math.max(0, Math.round((amount - fee) * 100) / 100);
+
+        netOutput.textContent = money(net);
+        feeOutput.textContent = money(fee);
+        rateOutput.textContent = `${rate.toFixed(2)}%`;
+        sentOutput.textContent = money(amount);
+        flowFeeOutput.textContent = money(fee);
+        flowNetOutput.textContent = money(net);
+    }
+
+    amountInput.addEventListener("input", updatePayPalCalculator);
+    modeSelect.addEventListener("change", updatePayPalCalculator);
+    calculator.querySelectorAll("[data-paypal-quick]").forEach((button) => {
+        button.addEventListener("click", () => {
+            amountInput.value = button.dataset.paypalQuick;
+            updatePayPalCalculator();
+            amountInput.focus();
+        });
+    });
+
+    updatePayPalCalculator();
+});
+
 document.addEventListener("click", (event) => {
     if (!event.target.closest(".enhanced-select")) {
         closeEnhancedSelects();
