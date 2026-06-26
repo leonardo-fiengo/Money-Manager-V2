@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title">
+    <h1>{{ loan.counterparty }}</h1>
+    <div class="inline-actions">
+        <a class="button" href="{{ url_for('loans.edit', loan_id=loan.id) }}">Edit</a>
+        <a class="button" href="{{ url_for('loans.index') }}">Back</a>
+    </div>
+</div>
+
+<section class="grid metrics">
+    <article class="card"><span>Type</span><strong>{{ "To receive" if loan.direction == "lent_out" else "To pay" }}</strong></article>
+    <article class="card"><span>Principal</span><strong>&euro;{{ "%.2f"|format(loan.principal_amount) }}</strong></article>
+    <article class="card"><span>Expected Total</span><strong>&euro;{{ "%.2f"|format(loan.expected_total_amount) }}</strong></article>
+    <article class="card"><span>Paid</span><strong>&euro;{{ "%.2f"|format(loan.paid_amount) }}</strong></article>
+    <article class="card"><span>Outstanding</span><strong>&euro;{{ "%.2f"|format(loan.outstanding_amount) }}</strong></article>
+</section>
+
+<section class="split">
+    <div>
+        <h2>Add Payment</h2>
+        <form class="form form-compact" method="post" action="{{ url_for('loans.payment', loan_id=loan.id) }}">
+            <label>Date <input type="date" name="date" required></label>
+            <label>Amount <input type="number" step="0.01" min="0" name="amount" required></label>
+            <label>Notes <input name="notes"></label>
+            <button>Save Payment</button>
+        </form>
+    </div>
+    <div>
+        <h2>Details</h2>
+        <table>
+            <tr><td>Start</td><td>{{ loan.start_date }}</td></tr>
+            <tr><td>Due</td><td>{{ loan.due_date or "" }}</td></tr>
+            <tr><td>Status</td><td>{{ loan.status }}</td></tr>
+            <tr><td>Notes</td><td>{{ loan.notes or "" }}</td></tr>
+        </table>
+    </div>
+</section>
+
+<section>
+    <h2>Payments</h2>
+    <table>
+        <tr><th>Date</th><th>Notes</th><th>Amount</th><th></th></tr>
+        {% for payment in payments %}
+        <tr>
+            <td>{{ payment.date }}</td>
+            <td>{{ payment.notes or "" }}</td>
+            <td class="money">&euro;{{ "%.2f"|format(payment.amount) }}</td>
+            <td class="actions">
+                <form method="post" action="{{ url_for('loans.payment_delete', payment_id=payment.id) }}" data-confirm="Delete this payment?">
+                    <input type="hidden" name="loan_id" value="{{ loan.id }}">
+                    <button class="danger-link">Delete</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr><td>No payments yet.</td></tr>
+        {% endfor %}
+    </table>
+</section>
+{% endblock %}

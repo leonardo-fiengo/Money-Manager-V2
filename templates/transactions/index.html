@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title">
+    <h1>Transactions</h1>
+    <a class="button" href="{{ url_for('transactions.new') }}">Add Transaction</a>
+</div>
+<form class="filters" method="get">
+    <input name="search" placeholder="Search" value="{{ filters.search or '' }}">
+    <select name="type">
+        <option value="">All types</option>
+        {% for type in ["expense", "income", "investment", "transfer"] %}
+        <option value="{{ type }}" {% if filters.type == type %}selected{% endif %}>{{ type }}</option>
+        {% endfor %}
+    </select>
+    <select name="account_id">
+        <option value="">All accounts</option>
+        {% for account in accounts %}
+        <option value="{{ account.id }}" {% if filters.account_id == account.id|string %}selected{% endif %}>{{ account.name }}</option>
+        {% endfor %}
+    </select>
+    <input name="category" placeholder="Category" value="{{ filters.category or '' }}">
+    <button>Filter</button>
+</form>
+<table>
+    <tr><th>Date</th><th>Type</th><th>Description</th><th>Account</th><th>Category</th><th>Status</th><th>Amount</th><th></th></tr>
+    {% for tx in transactions %}
+    <tr>
+        <td>{{ tx.date }}</td>
+        <td>
+            <span class="tx-type tx-type-{{ tx.type }}" aria-hidden="true">
+                {% if tx.type == "income" %}&uarr;{% elif tx.type == "expense" %}&darr;{% elif tx.type == "transfer" %}&harr;{% else %}&nearr;{% endif %}
+            </span>
+            {{ tx.type }}
+        </td>
+        <td>{{ tx.description or tx.merchant_name or "" }}</td>
+        <td class="transaction-account-cell">
+            <span class="account-logo-group" title="{{ tx.account_name }}{% if tx.destination_account_name %} to {{ tx.destination_account_name }}{% endif %}" aria-label="{{ tx.account_name }}{% if tx.destination_account_name %} to {{ tx.destination_account_name }}{% endif %}">
+                {% if tx.account_logo %}<img class="account-logo tiny" src="{{ tx.account_logo }}" alt="{{ tx.account_name }}">{% else %}<span class="account-logo tiny account-logo-fallback">{{ tx.account_name[:1] }}</span>{% endif %}
+                {% if tx.destination_account_name %}
+                <span class="account-logo-arrow">&rarr;</span>
+                {% if tx.destination_account_logo %}<img class="account-logo tiny" src="{{ tx.destination_account_logo }}" alt="{{ tx.destination_account_name }}">{% else %}<span class="account-logo tiny account-logo-fallback">{{ tx.destination_account_name[:1] }}</span>{% endif %}
+                {% endif %}
+            </span>
+        </td>
+        <td>
+            {% if tx.category %}
+            <span class="category-inline">
+                <span class="category-chip small" style="--category-color: {{ tx.category_color or '#64748b' }}" data-icon="{{ tx.category_icon or tx.category[0] }}">{{ tx.category_icon or tx.category[0] }}</span>
+                {{ tx.category }}
+            </span>
+            {% endif %}
+        </td>
+        <td><span class="status-pill status-{{ tx.status }}"><span></span>{{ tx.status }}</span></td>
+        <td class="money">{% if tx.currency == "USD" %}${% elif tx.currency == "GBP" %}&pound;{% elif tx.currency == "CHF" %}CHF {% else %}&euro;{% endif %}{{ "%.2f"|format(tx.amount) }}{% if tx.currency != "EUR" %} <span class="converted-amount">- EUR {{ "%.2f"|format(tx.amount_eur) }}</span>{% endif %}</td>
+        <td class="actions">
+            <a class="action-link" href="{{ url_for('transactions.edit', transaction_id=tx.id) }}">Edit</a>
+            <form method="post" action="{{ url_for('transactions.delete', transaction_id=tx.id) }}" data-confirm="Delete this transaction?"><button class="danger-link">Delete</button></form>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
+

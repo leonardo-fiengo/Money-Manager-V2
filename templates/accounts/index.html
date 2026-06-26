@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><h1>Accounts</h1><a class="button" href="{{ url_for('accounts.new') }}">Add Account</a></div>
+<table class="accounts-table">
+    <tr><th></th><th>Name</th><th>Type</th><th>Opening</th><th>Balance</th><th></th></tr>
+    {% for account in accounts %}
+    <tr>
+        <td class="visual-cell">
+            {% if account.logo %}
+            <img class="account-logo" src="{{ account.logo }}" alt="{{ account.name }}">
+            {% endif %}
+        </td>
+        <td>{{ account.name }}</td>
+        <td>{{ account.type }}</td>
+        <td>&euro;{{ "%.2f"|format(account.opening_balance) }}</td>
+        <td class="money">&euro;{{ "%.2f"|format(account.balance) }}</td>
+        <td><a class="action-link" href="{{ url_for('accounts.edit', account_id=account.id) }}">Edit</a></td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}
+

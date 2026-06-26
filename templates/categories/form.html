@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ "Edit" if category else "Add" }} Category</h1>
+{% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+<form class="form" method="post">
+    <label>Name <input name="name" value="{{ category.name if category else '' }}" required></label>
+    <label>Type
+        <select name="type">
+            {% for type in ["expense", "income", "investment", "transfer", "any"] %}
+            <option value="{{ type }}" {% if category and category.type == type %}selected{% endif %}>{{ type }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Color <input type="color" name="color" value="{{ category.color if category else '#64748b' }}"></label>
+    <label>Icon <input name="icon" value="{{ category.icon if category else '' }}"></label>
+    {% if category %}
+    <label class="check"><input type="checkbox" name="is_active" {% if category.is_active %}checked{% endif %}> Active</label>
+    {% endif %}
+    <button>Save</button>
+</form>
+{% endblock %}

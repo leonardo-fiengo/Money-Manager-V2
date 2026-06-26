@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Forecast</h1>
+<form class="form" method="post">
+    <label>Monthly Income <input type="number" step="0.01" name="monthly_income" value="{{ form.monthly_income }}"></label>
+    <label>Monthly Expenses <input type="number" step="0.01" name="monthly_expenses" value="{{ form.monthly_expenses }}"></label>
+    <label>Monthly Investments <input type="number" step="0.01" name="monthly_investments" value="{{ form.monthly_investments }}"></label>
+    <label>Years <input type="number" min="1" name="years" value="{{ form.years }}"></label>
+    <label>Annual Return % <input type="number" step="0.1" name="annual_return" value="{{ form.annual_return }}"></label>
+    <button>Project</button>
+</form>
+{% if result %}
+<table>
+    <tr><th>Year</th><th>Cash</th><th>Investments</th><th>Total</th></tr>
+    {% for row in result %}
+    <tr><td>{{ row.year }}</td><td>&euro;{{ "%.2f"|format(row.cash) }}</td><td>&euro;{{ "%.2f"|format(row.investments) }}</td><td class="money">&euro;{{ "%.2f"|format(row.total) }}</td></tr>
+    {% endfor %}
+</table>
+{% endif %}
+{% endblock %}

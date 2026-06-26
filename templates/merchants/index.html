@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><h1>Merchants</h1><a class="button" href="{{ url_for('merchants.new') }}">Add Merchant</a></div>
+<table>
+    <tr><th>Logo</th><th>Name</th><th>Website</th><th>Default Category</th><th></th></tr>
+    {% for merchant in merchants %}
+    <tr>
+        <td class="visual-cell">
+            {% if merchant.logo %}
+            <img class="merchant-logo" src="{{ merchant.logo }}" alt="{{ merchant.name }}">
+            {% endif %}
+        </td>
+        <td>{{ merchant.name }}</td>
+        <td>{{ merchant.website or "" }}</td>
+        <td>{{ merchant.default_category or "" }}</td>
+        <td><a class="action-link" href="{{ url_for('merchants.edit', merchant_id=merchant.id) }}">Edit</a></td>
+    </tr>
+    {% endfor %}
+</table>
+{% endblock %}

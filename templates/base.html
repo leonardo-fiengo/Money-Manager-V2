@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Money Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar-inner">
+            <a class="brand" href="{{ url_for('dashboard.index') }}">
+                <span class="brand-mark"><img src="{{ url_for('static', filename='img/brand-logo.svg') }}" alt="" aria-hidden="true"></span>
+                <span>Money Manager</span>
+            </a>
+            <nav>
+                <a class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}" href="{{ url_for('dashboard.index') }}">Dashboard</a>
+                <div class="nav-menu">
+                    <button class="nav-link nav-trigger {% if request.endpoint and (request.endpoint.startswith('transactions.') or request.endpoint.startswith('accounts.') or request.endpoint.startswith('budgets.') or request.endpoint.startswith('paypal_transfer.')) %}active{% endif %}" type="button">Money</button>
+                    <div class="nav-dropdown">
+                        <a href="{{ url_for('transactions.index') }}">Transactions</a>
+                        <a href="{{ url_for('accounts.index') }}">Accounts</a>
+                        <a href="{{ url_for('budgets.index') }}">Budgets</a>
+                        <a href="{{ url_for('paypal_transfer.index') }}">PayPal Transfer</a>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <button class="nav-link nav-trigger {% if request.endpoint and (request.endpoint.startswith('recurring.') or request.endpoint.startswith('pending.') or request.endpoint.startswith('loans.') or request.endpoint.startswith('forecast.')) %}active{% endif %}" type="button">Planning</button>
+                    <div class="nav-dropdown">
+                        <a href="{{ url_for('recurring.index') }}">Recurring</a>
+                        <a href="{{ url_for('pending.index') }}">Pending</a>
+                        <a href="{{ url_for('loans.index') }}">Prestiti</a>
+                        <a href="{{ url_for('forecast.index') }}">Forecast</a>
+                    </div>
+                </div>
+                <div class="nav-menu">
+                    <button class="nav-link nav-trigger {% if request.endpoint and (request.endpoint.startswith('merchants.') or request.endpoint.startswith('categories.') or request.endpoint.startswith('backup.')) %}active{% endif %}" type="button">Manage</button>
+                    <div class="nav-dropdown">
+                        <a href="{{ url_for('merchants.index') }}">Merchants</a>
+                        <a href="{{ url_for('categories.index') }}">Categories</a>
+                        <a href="{{ url_for('backup.index') }}">Backup</a>
+                    </div>
+                </div>
+                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('analytics.') %}active{% endif %}" href="{{ url_for('analytics.index') }}">Analytics</a>
+            </nav>
+            <a class="nav-add" href="{{ url_for('transactions.new') }}">Add Transaction</a>
+        </div>
+    </header>
+    <main class="page">
+        {% block content %}{% endblock %}
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+</body>
+</html>

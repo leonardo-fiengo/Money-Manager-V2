@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ "Edit" if tx else "Add" }} Transaction</h1>
+{% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+<form class="form" method="post">
+    <label>Date
+        <span class="date-control">
+            <span class="date-icon" aria-hidden="true"></span>
+            <input type="date" name="date" value="{{ tx.date if tx else '' }}" required>
+        </span>
+    </label>
+    <label>Type
+        <span class="select-with-visual">
+            <span class="select-leading" aria-hidden="true"></span>
+            <select name="type" data-visual-select required>
+            {% for type in ["expense", "income", "investment", "transfer"] %}
+            <option value="{{ type }}" data-label="{{ type }}" data-kind="type" data-symbol="{% if type == 'income' %}&uarr;{% elif type == 'expense' %}&darr;{% elif type == 'transfer' %}&harr;{% else %}&nearr;{% endif %}" data-tone="{{ type }}" {% if tx and tx.type == type %}selected{% endif %}>{{ type }}</option>
+            {% endfor %}
+            </select>
+        </span>
+    </label>
+    <label>Amount
+        <span class="amount-control">
+            <select name="currency" aria-label="Currency">
+                {% for currency, sign in [("EUR", "€"), ("USD", "$"), ("GBP", "£"), ("CHF", "CHF")] %}
+                <option value="{{ currency }}" {% if (tx and tx.currency == currency) or (not tx and currency == "EUR") %}selected{% endif %}>{{ sign }}</option>
+                {% endfor %}
+            </select>
+            <input type="number" step="0.01" min="0" name="amount" value="{{ tx.amount if tx else '' }}" placeholder="0.00" required>
+        </span>
+    </label>
+    <label>Account
+        <span class="select-with-visual">
+            <span class="select-leading" aria-hidden="true"></span>
+            <select name="account_id" data-visual-select required>
+                {% for account in accounts %}
+                <option value="{{ account.id }}" data-label="{{ account.name }}" data-kind="logo" data-logo="{{ account.logo or '' }}" {% if tx and tx.account_id|string == account.id|string %}selected{% endif %}>{{ account.name }}</option>
+                {% endfor %}
+            </select>
+        </span>
+    </label>
+    <label>Destination Account
+        <span class="select-with-visual">
+            <span class="select-leading" aria-hidden="true"></span>
+            <select name="destination_account_id" data-visual-select>
+            <option value="" data-label="None" data-kind="none">None</option>
+            {% for account in accounts %}
+            <option value="{{ account.id }}" data-label="{{ account.name }}" data-kind="logo" data-logo="{{ account.logo or '' }}" {% if tx and tx.destination_account_id|string == account.id|string %}selected{% endif %}>{{ account.name }}</option>
+            {% endfor %}
+            </select>
+        </span>
+    </label>
+    <label>
+        <span class="field-heading"><span>Merchant</span><a href="{{ url_for('merchants.new') }}">Add new</a></span>
+        <span class="select-with-visual">
+            <span class="select-leading" aria-hidden="true"></span>
+            <select name="merchant_id" data-visual-select>
+            <option value="" data-label="None" data-kind="none">None</option>
+            {% for merchant in merchants %}
+            <option value="{{ merchant.id }}" data-label="{{ merchant.name }}" data-kind="logo" data-logo="{{ merchant.logo or '' }}" {% if tx and tx.merchant_id|string == merchant.id|string %}selected{% endif %}>{{ merchant.name }}</option>
+            {% endfor %}
+            </select>
+        </span>
+    </label>
+    <label>
+        <span class="field-heading"><span>Category</span><a href="{{ url_for('categories.new') }}">Add new</a></span>
+        <span class="select-with-visual">
+            <span class="select-leading" aria-hidden="true"></span>
+            <select name="category" data-visual-select>
+            <option value="" data-label="None" data-kind="none">None</option>
+            {% for category in categories %}
+            <option value="{{ category.name }}" data-label="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}" {% if tx and tx.category == category.name %}selected{% endif %}>{{ category.name }}</option>
+            {% endfor %}
+            </select>
+        </span>
+    </label>
+    <label>Description <input name="description" value="{{ tx.description if tx else '' }}"></label>
+    <label>Status
+        <select name="status">
+            {% for status in ["posted", "pending"] %}
+            <option value="{{ status }}" {% if tx and tx.status == status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <button>Save</button>
+</form>
+{% endblock %}

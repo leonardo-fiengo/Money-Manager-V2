@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title">
+    <h1>Prestiti</h1>
+    <a class="button" href="{{ url_for('loans.new') }}">Add Loan</a>
+</div>
+
+<form class="filters" method="get">
+    <select name="status">
+        <option value="">All loans</option>
+        <option value="open" {% if status == "open" %}selected{% endif %}>Open</option>
+        <option value="closed" {% if status == "closed" %}selected{% endif %}>Closed</option>
+    </select>
+    <button>Filter</button>
+</form>
+
+<table>
+    <tr><th>Type</th><th>Person</th><th>Start</th><th>Due</th><th>Expected</th><th>Paid</th><th>Outstanding</th><th>Status</th><th></th></tr>
+    {% for loan in loans %}
+    <tr>
+        <td>
+            <span class="loan-pill loan-pill-{{ loan.direction }}">
+                {{ "To receive" if loan.direction == "lent_out" else "To pay" }}
+            </span>
+        </td>
+        <td>{{ loan.counterparty }}</td>
+        <td>{{ loan.start_date }}</td>
+        <td>{{ loan.due_date or "" }}</td>
+        <td class="money">&euro;{{ "%.2f"|format(loan.expected_total_amount) }}</td>
+        <td class="money">&euro;{{ "%.2f"|format(loan.paid_amount) }}</td>
+        <td class="money">&euro;{{ "%.2f"|format(loan.outstanding_amount) }}</td>
+        <td>{{ loan.status }}</td>
+        <td class="actions">
+            <a class="action-link" href="{{ url_for('loans.detail', loan_id=loan.id) }}">Open</a>
+            <a class="action-link" href="{{ url_for('loans.edit', loan_id=loan.id) }}">Edit</a>
+            <form method="post" action="{{ url_for('loans.delete', loan_id=loan.id) }}" data-confirm="Delete this loan and its payments?"><button class="danger-link">Delete</button></form>
+        </td>
+    </tr>
+    {% else %}
+    <tr><td>No loans yet.</td></tr>
+    {% endfor %}
+</table>
+{% endblock %}

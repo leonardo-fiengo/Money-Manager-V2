@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Analytics</h1>
+
+<section class="chart-grid">
+    <article class="chart-panel chart-panel-wide">
+        <div class="panel-heading">
+            <h2>Cumulative Balance</h2>
+            <span>Posted transaction trend</span>
+        </div>
+        <div class="chart-frame"><canvas id="analyticsBalanceChart"></canvas></div>
+    </article>
+    <article class="chart-panel">
+        <div class="panel-heading">
+            <h2>Weekday Spending</h2>
+            <span>Expense rhythm</span>
+        </div>
+        <div class="chart-frame"><canvas id="analyticsWeekdayChart"></canvas></div>
+    </article>
+    <article class="chart-panel chart-panel-wide">
+        <div class="panel-heading">
+            <h2>Monthly Breakdown</h2>
+            <span>Income, expenses, investments</span>
+        </div>
+        <div class="chart-frame"><canvas id="analyticsMonthlyChart"></canvas></div>
+    </article>
+    <article class="chart-panel">
+        <div class="panel-heading">
+            <h2>Category Share</h2>
+            <span>Expense distribution</span>
+        </div>
+        <div class="chart-frame"><canvas id="analyticsCategoryChart"></canvas></div>
+    </article>
+</section>
+
+<section class="split dashboard-lists analytics-lists">
+    <div class="dashboard-panel-list">
+        <h2>Monthly Summary</h2>
+        <div class="dashboard-list">
+            {% for row in monthly %}
+            <div class="dashboard-row monthly-row">
+                <span class="dashboard-date-chip"><strong>{{ row.month[5:7] }}</strong><small>{{ row.month[:4] }}</small></span>
+                <span class="monthly-metrics">
+                    <span><i class="dashboard-mini-icon mini-income">&uarr;</i><small>Income</small><strong>&euro;{{ "%.2f"|format(row.income) }}</strong></span>
+                    <span><i class="dashboard-mini-icon mini-expense">&darr;</i><small>Expenses</small><strong>&euro;{{ "%.2f"|format(row.expenses) }}</strong></span>
+                    <span><i class="dashboard-mini-icon mini-investment">&nearr;</i><small>Investments</small><strong>&euro;{{ "%.2f"|format(row.investments) }}</strong></span>
+                </span>
+            </div>
+            {% else %}
+            <div class="dashboard-empty">No monthly data yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="dashboard-panel-list">
+        <h2>Expenses by Category</h2>
+        <div class="dashboard-list">
+            {% for row in categories %}
+            <a class="dashboard-row category-row" href="{{ url_for('transactions.index', category=row.category) }}">
+                <span class="dashboard-row-logo dashboard-category-logo" style="--category-color: {{ row.color }}" data-icon="{{ row.icon }}"></span>
+                <span class="dashboard-row-main"><strong>{{ row.category }}</strong><small>Category spending</small></span>
+                <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(row.total) }}</span>
+            </a>
+            {% else %}
+            <div class="dashboard-empty">No categorized expenses yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="split dashboard-lists analytics-lists">
+    <div class="dashboard-panel-list">
+        <h2>Cumulative Balance</h2>
+        <div class="dashboard-list">
+            {% for row in cumulative %}
+            <div class="dashboard-row balance-row">
+                <span class="dashboard-date-chip"><strong>{{ row.date[8:10] }}</strong><small>{{ row.date[:7] }}</small></span>
+                <span class="dashboard-row-main"><strong>Balance</strong><small>After posted activity</small></span>
+                <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(row.balance) }}</span>
+            </div>
+            {% else %}
+            <div class="dashboard-empty">No balance history yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="dashboard-panel-list">
+        <h2>Weekday Spending</h2>
+        <div class="dashboard-list">
+            {% for row in weekdays %}
+            <div class="dashboard-row weekday-row">
+                <span class="dashboard-row-logo dashboard-type-logo dashboard-type-expense">{{ row.weekday[:2] }}</span>
+                <span class="dashboard-row-main"><strong>{{ row.weekday }}</strong><small>Expense rhythm</small></span>
+                <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(row.total) }}</span>
+            </div>
+            {% else %}
+            <div class="dashboard-empty">No weekday spending yet.</div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="dashboard-panel-list analytics-largest">
+    <h2>Largest Expenses</h2>
+    <div class="dashboard-list">
+        {% for tx in largest %}
+        <a class="dashboard-row largest-expense-row" href="{{ url_for('transactions.index', search=tx.description or tx.merchant_name or '') }}">
+            {% if tx.merchant_logo %}
+            <img class="dashboard-row-logo" src="{{ tx.merchant_logo }}" alt="">
+            {% elif tx.category_icon %}
+            <span class="dashboard-row-logo dashboard-category-logo" style="--category-color: {{ tx.category_color or '#147d64' }}" data-icon="{{ tx.category_icon }}"></span>
+            {% else %}
+            <span class="dashboard-row-logo dashboard-type-logo dashboard-type-expense">&darr;</span>
+            {% endif %}
+            <span class="dashboard-date-chip"><strong>{{ tx.date[8:10] }}</strong><small>{{ tx.date[:7] }}</small></span>
+            <span class="dashboard-row-main">
+                <strong>{{ tx.description or tx.merchant_name or tx.category or "Expense" }}</strong>
+                <small>{% if tx.account_logo %}<img class="account-logo tiny" src="{{ tx.account_logo }}" alt="{{ tx.account_name }}"> {% endif %}{{ tx.account_name }}</small>
+            </span>
+            <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(tx.amount) }}</span>
+        </a>
+        {% else %}
+        <div class="dashboard-empty">No expenses yet.</div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

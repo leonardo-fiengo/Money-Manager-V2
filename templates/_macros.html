@@ -1,0 +1,13 @@
+{% macro recurring_visual(rule) %}
+    {% set show_logo = rule.merchant_logo and rule.visual_mode in ["auto", "merchant_logo"] %}
+    {% if show_logo %}
+    <img class="merchant-logo" src="{{ rule.merchant_logo }}" alt="{{ rule.merchant_name or rule.name }}">
+    <span class="type-badge type-badge-{{ rule.type }} logo-fallback" aria-hidden="true">
+        {% if rule.type == "income" %}&uarr;{% elif rule.type == "investment" %}&nearr;{% else %}&darr;{% endif %}
+    </span>
+    {% else %}
+    <span class="type-badge type-badge-{{ rule.type }}" aria-hidden="true">
+        {% if rule.type == "income" %}&uarr;{% elif rule.type == "investment" %}&nearr;{% else %}&darr;{% endif %}
+    </span>
+    {% endif %}
+{% endmacro %}

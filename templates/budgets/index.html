@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title">
+    <h1>Budgets</h1>
+</div>
+
+<section class="grid metrics">
+    <article class="card"><span>Month</span><strong>{{ summary.month }}</strong></article>
+    <article class="card"><span>Budgeted</span><strong>&euro;{{ "%.2f"|format(summary.total_budget) }}</strong></article>
+    <article class="card"><span>Spent</span><strong>&euro;{{ "%.2f"|format(summary.total_spent) }}</strong></article>
+    <article class="card"><span>Remaining</span><strong>&euro;{{ "%.2f"|format(summary.remaining) }}</strong></article>
+</section>
+
+{% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+<form class="form" method="post">
+    <label>Month <input type="month" name="month" value="{{ month }}" required></label>
+    <label>Category
+        <select name="category_id" required>
+            {% for category in categories %}
+            <option value="{{ category.id }}">{{ category.name }}</option>
+            {% endfor %}
+        </select>
+    </label>
+    <label>Amount <input type="number" min="0" step="0.01" name="amount" required></label>
+    <button>Save Budget</button>
+</form>
+
+<table>
+    <tr><th>Category</th><th>Budget</th><th>Spent</th><th>Remaining</th><th>Progress</th><th></th></tr>
+    {% for budget in budgets %}
+    {% set remaining = budget.amount - budget.spent_amount %}
+    {% set percent = (budget.spent_amount / budget.amount * 100) if budget.amount else 0 %}
+    <tr>
+        <td>
+            <span class="category-inline">
+                <span class="category-chip small" style="--category-color: {{ budget.category_color }}" data-icon="{{ budget.category_icon or budget.category_name[0] }}">{{ budget.category_icon or budget.category_name[0] }}</span>
+                {{ budget.category_name }}
+            </span>
+        </td>
+        <td class="money">&euro;{{ "%.2f"|format(budget.amount) }}</td>
+        <td class="money">&euro;{{ "%.2f"|format(budget.spent_amount) }}</td>
+        <td class="money">&euro;{{ "%.2f"|format(remaining) }}</td>
+        <td>
+            <div class="budget-bar"><span style="width: {{ [percent, 100]|min }}%"></span></div>
+        </td>
+        <td class="actions">
+            <form method="post" action="{{ url_for('budgets.delete', budget_id=budget.id) }}" data-confirm="Delete this budget?">
+                <input type="hidden" name="month" value="{{ month }}">
+                <button class="danger-link">Delete</button>
+            </form>
+        </td>
+    </tr>
+    {% else %}
+    <tr><td>No budgets for this month.</td></tr>
+    {% endfor %}
+</table>
+{% endblock %}

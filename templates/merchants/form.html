@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ "Edit" if merchant else "Add" }} Merchant</h1>
+{% if error %}<p class="form-error">{{ error }}</p>{% endif %}
+<form class="form" method="post" enctype="multipart/form-data">
+    <label>Name <input name="name" value="{{ merchant.name if merchant else '' }}" required></label>
+    <label>Logo upload <input type="file" name="logo_file" accept=".png,.jpg,.jpeg,.gif,.webp,.svg"></label>
+    <label>Logo filename or URL <input name="logo" value="{{ merchant.logo if merchant else '' }}" placeholder="chatgpt.png or https://..."></label>
+    <label>Website <input name="website" value="{{ merchant.website if merchant else '' }}"></label>
+    <label>Default Category <input name="default_category" value="{{ merchant.default_category if merchant else '' }}"></label>
+    <button>Save</button>
+</form>
+{% if merchant and merchant.logo %}
+<section>
+    <h2>Current Logo</h2>
+    <img class="merchant-logo-preview" src="{{ merchant.logo }}" alt="{{ merchant.name }}">
+</section>
+{% endif %}
+{% endblock %}
