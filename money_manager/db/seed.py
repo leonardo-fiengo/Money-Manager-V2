@@ -6,7 +6,7 @@ DEFAULT_ACCOUNTS = [
     ("Revolut", "bank", "/static/uploads/accounts/revolut.svg", 0, None, None),
     ("Cash", "cash", "/static/uploads/accounts/cash.svg", 0, None, None),
     ("PayPal", "wallet", "/static/uploads/accounts/paypal.svg", 0, None, None),
-    ("Nexi", "credit_card", "/static/uploads/accounts/nexi.svg", 0, "Revolut", 15),
+    ("Nexi", "prepaid_card", "/static/uploads/accounts/nexi.svg", 0, None, None),
 ]
 
 

@@ -2,7 +2,7 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
-    type TEXT NOT NULL CHECK (type IN ('bank', 'cash', 'wallet', 'credit_card', 'investment')),
+    type TEXT NOT NULL CHECK (type IN ('bank', 'cash', 'wallet', 'prepaid_card', 'credit_card', 'investment')),
     logo TEXT,
     opening_balance REAL NOT NULL DEFAULT 0,
     settlement_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,

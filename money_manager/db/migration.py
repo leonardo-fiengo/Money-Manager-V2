@@ -30,6 +30,8 @@ def run_migrations(db):
     _run_once(db, "002_account_logos", _add_account_logos)
     _run_once(db, "003_transaction_currency", _add_transaction_currency)
     _run_once(db, "004_transaction_amount_eur", _add_transaction_amount_eur)
+    _run_once(db, "005_nexi_prepaid_account", _fix_nexi_prepaid_account)
+    _run_once(db, "006_prepaid_card_account_type", _add_prepaid_card_account_type)
     _backfill_transaction_amount_eur(db)
 
 
@@ -91,3 +93,90 @@ def _backfill_transaction_amount_eur(db):
             (to_eur(row["amount"], row["currency"] or "EUR"), row["id"]),
         )
     db.commit()
+
+
+def _fix_nexi_prepaid_account(db):
+    nexi = db.execute(
+        "SELECT id FROM accounts WHERE lower(name) = 'nexi' AND type = 'credit_card'"
+    ).fetchone()
+    if not nexi:
+        return
+
+    # Remove only unposted transfers that were generated automatically for
+    # Nexi while it was incorrectly classified as a credit card.
+    db.execute(
+        """
+        DELETE FROM transactions
+        WHERE destination_account_id = ?
+          AND status = 'pending'
+          AND is_credit_card_settlement = 1
+        """,
+        (nexi["id"],),
+    )
+    db.execute(
+        """
+        UPDATE accounts
+        SET type = 'wallet', settlement_account_id = NULL, settlement_day = NULL
+        WHERE id = ?
+        """,
+        (nexi["id"],),
+    )
+
+
+def _add_prepaid_card_account_type(db):
+    table = db.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'accounts'"
+    ).fetchone()
+    supports_prepaid = table and "'prepaid_card'" in table["sql"]
+
+    if not supports_prepaid:
+        db.commit()
+        db.execute("PRAGMA foreign_keys = OFF")
+        try:
+            db.executescript(
+                """
+                BEGIN;
+
+                CREATE TABLE accounts_with_prepaid (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE,
+                    type TEXT NOT NULL CHECK (
+                        type IN ('bank', 'cash', 'wallet', 'prepaid_card', 'credit_card', 'investment')
+                    ),
+                    logo TEXT,
+                    opening_balance REAL NOT NULL DEFAULT 0,
+                    settlement_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL,
+                    settlement_day INTEGER CHECK (settlement_day BETWEEN 1 AND 28),
+                    is_active INTEGER NOT NULL DEFAULT 1,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                INSERT INTO accounts_with_prepaid (
+                    id, name, type, logo, opening_balance, settlement_account_id,
+                    settlement_day, is_active, created_at
+                )
+                SELECT
+                    id, name, type, logo, opening_balance, settlement_account_id,
+                    settlement_day, is_active, created_at
+                FROM accounts;
+
+                DROP TABLE accounts;
+                ALTER TABLE accounts_with_prepaid RENAME TO accounts;
+
+                COMMIT;
+                """
+            )
+        except Exception:
+            db.rollback()
+            raise
+        finally:
+            db.execute("PRAGMA foreign_keys = ON")
+
+    db.execute(
+        """
+        UPDATE accounts
+        SET type = 'prepaid_card', settlement_account_id = NULL, settlement_day = NULL
+        WHERE lower(name) = 'nexi'
+          AND type IN ('wallet', 'credit_card')
+        """
+    )

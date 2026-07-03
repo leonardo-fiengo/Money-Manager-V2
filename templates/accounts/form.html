@@ -5,7 +5,7 @@
     <label>Name <input name="name" value="{{ account.name if account else '' }}" required></label>
     <label>Type
         <select name="type" required>
-            {% for type in ["bank", "cash", "wallet", "credit_card", "investment"] %}
+            {% for type in ["bank", "cash", "wallet", "prepaid_card", "credit_card", "investment"] %}
             <option value="{{ type }}" {% if account and account.type == type %}selected{% endif %}>{{ type }}</option>
             {% endfor %}
         </select>

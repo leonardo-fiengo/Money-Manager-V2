@@ -5,7 +5,7 @@ from pathlib import Path
 
 from money_manager import create_app
 from money_manager.db.connection import close_db
-from money_manager.services.accounts import list_accounts
+from money_manager.services.accounts import create_account, list_accounts
 from money_manager.services.backup import export_data
 from money_manager.services.budgets import budget_summary, list_budgets, upsert_budget
 from money_manager.services.categories import create_category, list_categories
@@ -42,7 +42,32 @@ class MoneyLogicTest(unittest.TestCase):
         return next(account for account in list_accounts(active_only=False) if account["name"] == name)
 
     def test_credit_card_expense_creates_pending_settlement(self):
+        revolut = self.account("Revolut")
+        card_id = create_account("Credit card", "credit_card", settlement_account_id=revolut["id"], settlement_day=15)
+        create_transaction(
+            {
+                "date": "2026-06-10",
+                "type": "expense",
+                "amount": 42.5,
+                "category": "Food",
+                "description": "Dinner",
+                "account_id": card_id,
+            }
+        )
+
+        transactions = list_transactions(include_pending=True)
+        pending = [tx for tx in transactions if tx["status"] == "pending"]
+
+        self.assertEqual(len(transactions), 2)
+        self.assertEqual(pending[0]["type"], "transfer")
+        self.assertEqual(pending[0]["date"], "2026-06-15")
+        self.assertEqual(pending[0]["is_credit_card_settlement"], 1)
+
+    def test_nexi_prepaid_expense_does_not_create_settlement(self):
         nexi = self.account("Nexi")
+        self.assertEqual(nexi["type"], "prepaid_card")
+        self.assertIsNone(nexi["settlement_account_id"])
+
         create_transaction(
             {
                 "date": "2026-06-10",
@@ -55,15 +80,12 @@ class MoneyLogicTest(unittest.TestCase):
         )
 
         transactions = list_transactions(include_pending=True)
-        pending = [tx for tx in transactions if tx["status"] == "pending"]
-
-        self.assertEqual(len(transactions), 2)
-        self.assertEqual(pending[0]["type"], "transfer")
-        self.assertEqual(pending[0]["date"], "2026-06-15")
-        self.assertEqual(pending[0]["is_credit_card_settlement"], 1)
+        self.assertEqual(len(transactions), 1)
+        self.assertEqual(transactions[0]["type"], "expense")
 
     def test_due_pending_expense_posts_in_place_and_gets_settlement(self):
-        nexi = self.account("Nexi")
+        revolut = self.account("Revolut")
+        card_id = create_account("Credit card", "credit_card", settlement_account_id=revolut["id"], settlement_day=15)
         create_transaction(
             {
                 "date": "2026-06-01",
@@ -71,7 +93,7 @@ class MoneyLogicTest(unittest.TestCase):
                 "amount": 20,
                 "category": "Software",
                 "description": "Pending card charge",
-                "account_id": nexi["id"],
+                "account_id": card_id,
                 "status": "pending",
             },
             create_settlement=False,
