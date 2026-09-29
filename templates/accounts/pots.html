@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><div><p class="eyebrow">Make room for what matters</p><h1>Savings pots</h1></div></div>
+<p class="page-intro">Set money aside for a goal. Pots are labels on your existing money: they don't move funds or count as spending. Investment accounts are excluded from available funds.</p>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<div class="savings-overview"><span>Reserved <strong>€{{ '%.2f'|format(summary.reserved) }}</strong></span><span>Unassigned <strong>€{{ '%.2f'|format(summary.unassigned) }}</strong></span></div>
+{% if summary.unassigned < 0 %}<p class="notice notice-error">Your balances have fallen below the amount reserved. Reduce a pot's reserved amount to bring the plan back in line.</p>{% endif %}
+<div class="balance-grid">
+{% for pot in summary.pots %}
+<article class="balance-card"><h2>{{ pot.name }}</h2><p><strong>€{{ '%.2f'|format(pot.reserved) }}</strong> <span class="muted-text">of €{{ '%.2f'|format(pot.target) }}</span></p><progress value="{{ pot.reserved }}" max="{{ pot.target }}" aria-label="{{ pot.name }} progress"></progress>
+<details><summary>Edit or release money</summary><form method="post" class="pot-form"><input type="hidden" name="pot_id" value="{{ pot.id }}"><label>Name<input name="name" value="{{ pot.name }}" maxlength="100" required></label><label>Target (€)<input type="number" name="target" value="{{ pot.target }}" min="0.01" step="0.01" required></label><label>Reserved (€)<input type="number" name="reserved" value="{{ pot.reserved }}" min="0" step="0.01" required></label><small class="field-help">Lower the reserved amount to release money, or set it to zero.</small><button>Save pot</button></form></details></article>
+{% else %}<p class="empty-state">Your first goal starts here. A trip, a new laptop, or simply a buffer.</p>{% endfor %}
+</div>
+<h2 class="section-title">Create a pot</h2>
+<form method="post" class="form"><label>Name<input name="name" placeholder="For example: Summer trip" maxlength="100" required></label><label>Target (€)<input type="number" name="target" min="0.01" step="0.01" required></label><label>Reserve now (€)<input type="number" name="reserved" min="0" step="0.01" value="0" required></label><button>Create pot</button></form>
+{% endblock %}

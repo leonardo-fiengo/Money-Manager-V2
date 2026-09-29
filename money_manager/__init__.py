@@ -1,27 +1,61 @@
+import shutil
+import sys
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, jsonify, send_from_directory
 
-from config import DATA_DIR
+import config as default_config
 from money_manager.db.connection import close_db
 from money_manager.db.migration import ensure_database
 
 
-def create_app(config_object="config"):
-    base_dir = Path(__file__).resolve().parent.parent
+def _resource_dir():
+    return Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent.parent))
+
+
+def _prepare_merchant_logos(resource_dir, target_dir):
+    target_dir.mkdir(parents=True, exist_ok=True)
+    bundled_dir = resource_dir / "static" / "uploads" / "merchants"
+    if bundled_dir.resolve() == target_dir.resolve() or not bundled_dir.exists():
+        return
+
+    for source in bundled_dir.iterdir():
+        target = target_dir / source.name
+        if source.is_file() and not target.exists():
+            shutil.copy2(source, target)
+
+
+def create_app(config_object=default_config):
+    resource_dir = _resource_dir()
     app = Flask(
         __name__,
         instance_relative_config=False,
-        template_folder=str(base_dir / "templates"),
-        static_folder=str(base_dir / "static"),
+        template_folder=str(resource_dir / "templates"),
+        static_folder=str(resource_dir / "static"),
     )
     app.config.from_object(config_object)
-    app.config.setdefault("MERCHANT_LOGO_DIR", base_dir / "static" / "uploads" / "merchants")
+    app.config.setdefault("MERCHANT_LOGO_DIR", resource_dir / "static" / "uploads" / "merchants")
 
-    DATA_DIR.mkdir(exist_ok=True)
-    app.config["MERCHANT_LOGO_DIR"].mkdir(parents=True, exist_ok=True)
+    app.config["DATA_DIR"] = Path(app.config["DATA_DIR"])
+    app.config["DATABASE"] = Path(app.config["DATABASE"])
+    app.config["MERCHANT_LOGO_DIR"] = Path(app.config["MERCHANT_LOGO_DIR"])
+
+    @app.context_processor
+    def asset_versions():
+        return {"asset_version": lambda filename: (resource_dir / "static" / filename).stat().st_mtime_ns}
+
+    app.config["DATA_DIR"].mkdir(parents=True, exist_ok=True)
+    _prepare_merchant_logos(resource_dir, app.config["MERCHANT_LOGO_DIR"])
     app.teardown_appcontext(close_db)
     ensure_database(app)
+
+    @app.get("/health")
+    def health():
+        return jsonify(app="money-manager", status="ok")
+
+    @app.get("/static/uploads/merchants/<path:filename>")
+    def merchant_logo(filename):
+        return send_from_directory(app.config["MERCHANT_LOGO_DIR"], filename)
 
     from money_manager.routes.accounts import bp as accounts_bp
     from money_manager.routes.analytics import bp as analytics_bp

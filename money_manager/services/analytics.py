@@ -1,11 +1,35 @@
 from collections import defaultdict
+from datetime import date, timedelta
 
 from money_manager.db.connection import get_db
 from money_manager.services.accounts import account_balances
 
 
-def _posted_transactions():
-    return get_db().execute("SELECT * FROM transactions WHERE status = 'posted'").fetchall()
+def dashboard_period(period="month"):
+    today = date.today()
+    if period == "all":
+        return dict(period=period, start=None, end=None, label="All time")
+    if period == "last_month":
+        end = today.replace(day=1) - timedelta(days=1)
+        start = end.replace(day=1)
+        label = end.strftime("%B %Y")
+    elif period == "year":
+        start, end, label = today.replace(month=1, day=1), today, "This year"
+    else:
+        period = "month"
+        start, end, label = today.replace(day=1), today, today.strftime("%B %Y")
+    return dict(period=period, start=start.isoformat(), end=end.isoformat(), label=label)
+
+
+def _posted_transactions(start=None, end=None):
+    sql, params = "SELECT * FROM transactions WHERE status = 'posted'", []
+    if start:
+        sql += " AND date >= ?"
+        params.append(start)
+    if end:
+        sql += " AND date <= ?"
+        params.append(end)
+    return get_db().execute(sql, params).fetchall()
 
 
 def _row_value(row, key, default=None):
@@ -17,9 +41,9 @@ def _amount_eur(row):
     return float(stored_amount if stored_amount not in (None, 0) else row["amount"])
 
 
-def dashboard_metrics():
+def dashboard_metrics(start=None, end=None):
     totals = {"income": 0, "expense": 0, "investment": 0}
-    for tx in _posted_transactions():
+    for tx in _posted_transactions(start, end):
         if tx["type"] in totals:
             totals[tx["type"]] += _amount_eur(tx)
 
@@ -36,9 +60,9 @@ def dashboard_metrics():
     }
 
 
-def monthly_summary():
+def monthly_summary(start=None, end=None):
     rows = defaultdict(lambda: {"income": 0, "expenses": 0, "investments": 0})
-    for tx in _posted_transactions():
+    for tx in _posted_transactions(start, end):
         month = tx["date"][:7]
         amount = _amount_eur(tx)
         if tx["type"] == "income":
@@ -58,9 +82,9 @@ def monthly_summary():
     ]
 
 
-def expenses_by_category():
+def expenses_by_category(start=None, end=None):
     rows = defaultdict(float)
-    for tx in _posted_transactions():
+    for tx in _posted_transactions(start, end):
         if tx["type"] == "expense":
             rows[tx["category"] or "Uncategorized"] += _amount_eur(tx)
 
@@ -75,7 +99,7 @@ def expenses_by_category():
             {
                 "category": category,
                 "total": round(total, 2),
-                "icon": category_row["icon"] if category_row else "$",
+                "icon": (category_row["icon"] or category[:1]) if category_row else "$",
                 "color": category_row["color"] if category_row else "#147d64",
             }
         )
@@ -90,7 +114,9 @@ def cumulative_balance():
             rows[tx["date"]] += amount
         elif tx["type"] in ("expense", "investment"):
             rows[tx["date"]] -= amount
-    balance = 0
+    for check in get_db().execute("SELECT created_at, adjustment FROM balance_checks WHERE adjustment != 0"):
+        rows[check["created_at"][:10]] += check["adjustment"]
+    balance = sum(a["opening_balance"] for a in account_balances())
     output = []
     for day, change in sorted(rows.items()):
         balance += change

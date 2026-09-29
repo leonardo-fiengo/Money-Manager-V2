@@ -2,26 +2,27 @@
 {% block content %}
 <div class="page-title">
     <h1>Transactions</h1>
-    <a class="button" href="{{ url_for('transactions.new') }}">Add Transaction</a>
 </div>
 <form class="filters" method="get">
-    <input name="search" placeholder="Search" value="{{ filters.search or '' }}">
-    <select name="type">
+    <input name="search" aria-label="Search transactions" placeholder="Search transactions" value="{{ filters.search or '' }}">
+    <select name="type" aria-label="Transaction type">
         <option value="">All types</option>
         {% for type in ["expense", "income", "investment", "transfer"] %}
         <option value="{{ type }}" {% if filters.type == type %}selected{% endif %}>{{ type }}</option>
         {% endfor %}
     </select>
-    <select name="account_id">
+    <select name="account_id" aria-label="Account">
         <option value="">All accounts</option>
         {% for account in accounts %}
         <option value="{{ account.id }}" {% if filters.account_id == account.id|string %}selected{% endif %}>{{ account.name }}</option>
         {% endfor %}
     </select>
-    <input name="category" placeholder="Category" value="{{ filters.category or '' }}">
+    <input name="category" aria-label="Category" placeholder="Category" value="{{ filters.category or '' }}">
+    <label>From <input type="date" name="start" value="{{ filters.start or '' }}"></label>
+    <label>To <input type="date" name="end" value="{{ filters.end or '' }}"></label>
     <button>Filter</button>
 </form>
-<table>
+<div class="table-scroll"><table class="transaction-table">
     <tr><th>Date</th><th>Type</th><th>Description</th><th>Account</th><th>Category</th><th>Status</th><th>Amount</th><th></th></tr>
     {% for tx in transactions %}
     <tr>
@@ -32,7 +33,7 @@
             </span>
             {{ tx.type }}
         </td>
-        <td>{{ tx.description or tx.merchant_name or "" }}</td>
+        <td title="{{ tx.description or tx.merchant_name or '' }}">{{ tx.description or tx.merchant_name or "" }}</td>
         <td class="transaction-account-cell">
             <span class="account-logo-group" title="{{ tx.account_name }}{% if tx.destination_account_name %} to {{ tx.destination_account_name }}{% endif %}" aria-label="{{ tx.account_name }}{% if tx.destination_account_name %} to {{ tx.destination_account_name }}{% endif %}">
                 {% if tx.account_logo %}<img class="account-logo tiny" src="{{ tx.account_logo }}" alt="{{ tx.account_name }}">{% else %}<span class="account-logo tiny account-logo-fallback">{{ tx.account_name[:1] }}</span>{% endif %}
@@ -54,10 +55,10 @@
         <td class="money">{% if tx.currency == "USD" %}${% elif tx.currency == "GBP" %}&pound;{% elif tx.currency == "CHF" %}CHF {% else %}&euro;{% endif %}{{ "%.2f"|format(tx.amount) }}{% if tx.currency != "EUR" %} <span class="converted-amount">- EUR {{ "%.2f"|format(tx.amount_eur) }}</span>{% endif %}</td>
         <td class="actions">
             <a class="action-link" href="{{ url_for('transactions.edit', transaction_id=tx.id) }}">Edit</a>
-            <form method="post" action="{{ url_for('transactions.delete', transaction_id=tx.id) }}" data-confirm="Delete this transaction?"><button class="danger-link">Delete</button></form>
+            <form method="post" action="{{ url_for('transactions.delete', transaction_id=tx.id) }}"><button class="danger-link">Delete</button></form>
         </td>
     </tr>
-    {% endfor %}
-</table>
+    {% else %}<tr><td colspan="8" class="empty-state">No transactions match these filters.</td></tr>{% endfor %}
+</table></div>
 {% endblock %}
 

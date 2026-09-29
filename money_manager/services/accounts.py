@@ -62,4 +62,11 @@ def account_balances():
             if tx["destination_account_id"] in balances:
                 balances[tx["destination_account_id"]]["balance"] += amount
 
+    for row in get_db().execute("SELECT account_id, SUM(adjustment) AS amount FROM balance_checks GROUP BY account_id"):
+        balances[row["account_id"]]["balance"] += row["amount"]
+
+    for row in get_db().execute("SELECT * FROM balance_checks ORDER BY id"):
+        balances[row["account_id"]]["last_check"] = row["created_at"]
+        balances[row["account_id"]]["last_check_matched"] = abs(row["actual"] - row["expected"] - row["adjustment"]) < 0.005
+
     return [dict(row, balance=round(row["balance"], 2)) for row in balances.values()]

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ "Edit" if merchant else "Add" }} Merchant</h1>
+<div class="page-title"><div class="title-copy"><p class="eyebrow">Your places</p><h1>{{ "Edit" if merchant else "Add" }} Merchant</h1></div></div>
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
 <form class="form" method="post" enctype="multipart/form-data">
     <label>Name <input name="name" value="{{ merchant.name if merchant else '' }}" required></label>

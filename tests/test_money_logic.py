@@ -1,3 +1,4 @@
+import io
 import tempfile
 import unittest
 import gc
@@ -24,6 +25,7 @@ class MoneyLogicTest(unittest.TestCase):
             {
                 "DATA_DIR": Path(self.temp_dir.name),
                 "DATABASE": Path(self.temp_dir.name) / "test.sqlite3",
+                "MERCHANT_LOGO_DIR": Path(self.temp_dir.name) / "uploads" / "merchants",
                 "SECRET_KEY": "test",
                 "TESTING": True,
             },
@@ -245,6 +247,32 @@ class MoneyLogicTest(unittest.TestCase):
         self.assertEqual(budget_summary("2026-06")["remaining"], 35)
         self.assertIn("Books", [category["name"] for category in list_categories()])
         self.assertIn("transactions", export_data())
+
+    def test_packaged_routes_and_persistent_merchant_upload(self):
+        client = self.app.test_client()
+
+        health = client.get("/health")
+        stylesheet = client.get("/static/css/app.css")
+        created = client.post(
+            "/merchants/new",
+            data={
+                "name": "Uploaded logo merchant",
+                "website": "",
+                "default_category": "",
+                "logo_file": (io.BytesIO(b"test-image-content"), "test-logo.png"),
+            },
+            content_type="multipart/form-data",
+        )
+        uploaded_logo = client.get("/static/uploads/merchants/test-logo.png")
+
+        self.assertEqual(health.status_code, 200)
+        self.assertEqual(health.get_json(), {"app": "money-manager", "status": "ok"})
+        self.assertEqual(stylesheet.status_code, 200)
+        self.assertEqual(created.status_code, 302)
+        self.assertEqual(uploaded_logo.status_code, 200)
+        self.assertEqual(uploaded_logo.data, b"test-image-content")
+        stylesheet.close()
+        uploaded_logo.close()
 
 
 if __name__ == "__main__":

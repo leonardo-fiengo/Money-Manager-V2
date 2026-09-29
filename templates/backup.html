@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-title">
-    <h1>Backup</h1>
+    <div class="title-copy"><p class="eyebrow">Keep a copy</p><h1>Backup</h1></div>
     <a class="button" href="{{ url_for('backup.export_json') }}">Export JSON</a>
 </div>
 <section>
     <h2>Local Data Export</h2>
-    <p class="muted-text">Download a JSON backup of accounts, merchants, categories, transactions, recurring rules, loans, payments, and budgets.</p>
+    <p class="muted-text">Download a JSON backup of your accounts, transactions, recurring rules, loans, budgets, balance checks, payment preference, and savings pots.</p>
 </section>
 {% endblock %}

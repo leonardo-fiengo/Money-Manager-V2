@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ "Edit" if account else "Add" }} Account</h1>
+<div class="page-title"><div class="title-copy"><p class="eyebrow">Where your money lives</p><h1>{{ "Edit" if account else "Add" }} Account</h1></div></div>
 <form class="form" method="post">
     <label>Name <input name="name" value="{{ account.name if account else '' }}" required></label>
     <label>Type
         <select name="type" required>
             {% for type in ["bank", "cash", "wallet", "prepaid_card", "credit_card", "investment"] %}
-            <option value="{{ type }}" {% if account and account.type == type %}selected{% endif %}>{{ type }}</option>
+            <option value="{{ type }}" {% if account and account.type == type %}selected{% endif %}>{{ type.replace('_', ' ')|title }}</option>
             {% endfor %}
         </select>
     </label>
@@ -21,7 +21,7 @@
         </select>
     </label>
     <label>Settlement Day <input type="number" min="1" max="28" name="settlement_day" value="{{ account.settlement_day if account else '' }}"></label>
-    <label class="check"><input type="checkbox" name="is_active" checked> Active</label>
+    {% if account %}<label class="check"><input type="checkbox" name="is_active" {% if account.is_active %}checked{% endif %}> Active</label>{% endif %}
     <button>Save</button>
 </form>
 {% endblock %}

@@ -31,7 +31,30 @@ function iconMarkup(icon) {
         chart: '<svg viewBox="0 0 24 24"><path d="M4 19h16"/><path d="M6 16l4-4 3 3 5-7"/><path d="M15 8h3v3"/></svg>',
         "$": '<svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M16 7.5C15 6.5 13.8 6 12.2 6 9.8 6 8 7.2 8 9s1.4 2.6 4 3.1c2.6.5 4 1.2 4 3.1S14.2 18 11.8 18c-1.7 0-3.2-.6-4.3-1.8"/></svg>',
     };
-    return icons[icon] || `<span>${icon || ""}</span>`;
+    return icons[icon] || `<span>${escapeHtml(icon || "")}</span>`;
+}
+
+function escapeHtml(value) {
+    const span = document.createElement("span");
+    span.textContent = value;
+    return span.innerHTML;
+}
+
+let quickSelect = null;
+function openQuickOption(select) {
+    const dialog = document.querySelector('[data-quick-dialog]');
+    if (!dialog) return;
+    quickSelect = select;
+    const kind = select.dataset.createKind;
+    const form = dialog.querySelector('form');
+    form.reset();
+    dialog.querySelector('#quick-title').textContent = `Add ${kind}`;
+    dialog.querySelector('[data-category-type]').hidden = kind !== 'category';
+    dialog.querySelector('[data-merchant-category]').hidden = kind !== 'merchant';
+    dialog.querySelector('[data-quick-error]').hidden = true;
+    form.elements.type.value = document.querySelector('[data-transaction-form] [name="type"]').value;
+    dialog.showModal();
+    form.elements.name.focus();
 }
 
 function updateSelectVisual(select) {
@@ -98,7 +121,7 @@ function updateEnhancedTrigger(wrapper, select) {
     if (!selected || !trigger) {
         return;
     }
-    trigger.innerHTML = `${optionVisual(selected)}<span class="choice-label">${optionLabel(selected)}</span><span class="choice-caret"></span>`;
+    trigger.innerHTML = `${optionVisual(selected)}<span class="choice-label">${escapeHtml(optionLabel(selected))}</span><span class="choice-caret"></span>`;
 }
 
 function enhanceSelect(select) {
@@ -113,38 +136,85 @@ function enhanceSelect(select) {
     trigger.className = "enhanced-trigger";
     trigger.setAttribute("aria-haspopup", "listbox");
     trigger.setAttribute("aria-expanded", "false");
+    const fieldNames = {merchant_id: 'Merchant', category: 'Category', account_id: 'Payment account', destination_account_id: 'Destination account'};
+    trigger.setAttribute("aria-label", fieldNames[select.name] || select.closest("label")?.firstChild.textContent.trim() || select.name);
 
     const menu = document.createElement("div");
     menu.className = "enhanced-menu";
-    menu.setAttribute("role", "listbox");
+    menu.setAttribute("role", "group");
 
+    function renderOptions() {
+    menu.replaceChildren();
     Array.from(select.options).forEach((option) => {
         const item = document.createElement("button");
         item.type = "button";
         item.className = "enhanced-option";
         item.dataset.value = option.value;
-        item.setAttribute("role", "option");
-        item.innerHTML = `${optionVisual(option)}<span class="choice-label">${optionLabel(option)}</span>`;
+        item.setAttribute("aria-pressed", String(option.selected));
+        item.classList.toggle("selected", option.selected);
+        item.innerHTML = `${optionVisual(option)}<span class="choice-label">${escapeHtml(optionLabel(option))}</span>`;
         item.addEventListener("click", () => {
             select.value = option.value;
             select.dispatchEvent(new Event("change", { bubbles: true }));
             wrapper.classList.remove("open");
             trigger.setAttribute("aria-expanded", "false");
+            trigger.focus();
         });
         menu.appendChild(item);
     });
+    if (select.dataset.createKind) {
+        const add = document.createElement("button");
+        add.type = "button";
+        add.className = "enhanced-create";
+        add.textContent = `+ Add new ${select.dataset.createKind}…`;
+        add.addEventListener("click", () => {
+            closeEnhancedSelects();
+            openQuickOption(select);
+        });
+        menu.appendChild(add);
+    }
+    }
+    renderOptions();
 
     trigger.addEventListener("click", () => {
         const willOpen = !wrapper.classList.contains("open");
         closeEnhancedSelects(wrapper);
         wrapper.classList.toggle("open", willOpen);
         trigger.setAttribute("aria-expanded", String(willOpen));
+        if (willOpen) (menu.querySelector(".selected") || menu.querySelector("button"))?.focus();
+    });
+
+    wrapper.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+            closeEnhancedSelects();
+            trigger.focus();
+        }
+        if (["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) {
+            event.preventDefault();
+            closeEnhancedSelects(wrapper);
+            wrapper.classList.add("open");
+            trigger.setAttribute("aria-expanded", "true");
+            const items = Array.from(menu.querySelectorAll("button"));
+            const current = items.indexOf(document.activeElement);
+            let next = event.key === "ArrowUp" ? current - 1 : current + 1;
+            if (event.key === "Home") next = 0;
+            if (event.key === "End") next = items.length - 1;
+            items[(next + items.length) % items.length]?.focus();
+        }
+    });
+    wrapper.addEventListener("focusout", (event) => {
+        if (event.relatedTarget && !wrapper.contains(event.relatedTarget)) closeEnhancedSelects();
+    });
+    select.addEventListener("optionschanged", () => {
+        renderOptions();
+        updateEnhancedTrigger(wrapper, select);
     });
 
     select.addEventListener("change", () => {
         updateEnhancedTrigger(wrapper, select);
         menu.querySelectorAll(".enhanced-option").forEach((item) => {
             item.classList.toggle("selected", item.dataset.value === select.value);
+            item.setAttribute("aria-pressed", String(item.dataset.value === select.value));
         });
     });
 
@@ -576,72 +646,80 @@ document.addEventListener("click", (event) => {
     }
 });
 
-(function () {
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const balanceKey = "money-manager:last-net-balance";
-
-    function easeOutCubic(t) {
-        return 1 - Math.pow(1 - t, 3);
+// Keep transaction entry focused and preserve user choices while suggesting defaults.
+const transactionForm = document.querySelector('[data-transaction-form]');
+if (transactionForm) {
+    const type = transactionForm.elements.type;
+    const destination = transactionForm.elements.destination_account_id;
+    function syncDestination() {
+        const visible = type.value === 'transfer';
+        transactionForm.querySelector('[data-destination]').hidden = !visible;
+        destination.disabled = !visible;
+        destination.required = visible;
     }
-
-    function formatValue(value, element) {
-        const decimals = Number(element.dataset.decimals || 0);
-        const prefix = element.dataset.prefix || "";
-        const suffix = element.dataset.suffix || "";
-        return `${prefix}${Number(value).toLocaleString("en-US", {
-            minimumFractionDigits: decimals,
-            maximumFractionDigits: decimals,
-        })}${suffix}`;
-    }
-
-    function setValue(element, value) {
-        element.textContent = formatValue(value, element);
-    }
-
-    function animateValue(element, from, to, duration) {
-        if (reduceMotion || duration <= 0) {
-            setValue(element, to);
-            return;
+    type.addEventListener('change', syncDestination);
+    syncDestination();
+    const merchant = transactionForm.elements.merchant_id;
+    const category = transactionForm.elements.category;
+    let categoryChosen = Boolean(category.value);
+    category.addEventListener('change', () => { categoryChosen = Boolean(category.value); });
+    merchant.addEventListener('change', () => {
+        if (categoryChosen) return;
+        const suggestion = merchant.selectedOptions[0]?.dataset.defaultCategory;
+        if (suggestion && Array.from(category.options).some(option => option.value === suggestion)) {
+            category.value = suggestion;
+            category.dispatchEvent(new Event('change', {bubbles: true}));
+            categoryChosen = false;
         }
+    });
+}
 
-        const start = performance.now();
-        const difference = to - from;
-
-        function frame(now) {
-            const progress = Math.min((now - start) / duration, 1);
-            setValue(element, from + difference * easeOutCubic(progress));
-            if (progress < 1) {
-                requestAnimationFrame(frame);
+const quickDialog = document.querySelector('[data-quick-dialog]');
+if (quickDialog) {
+    quickDialog.querySelectorAll('[data-dialog-close]').forEach(button => {
+        button.addEventListener('click', () => quickDialog.close());
+    });
+    quickDialog.addEventListener('close', () => quickSelect?.closest('.enhanced-select').querySelector('.enhanced-trigger').focus());
+    quickDialog.querySelector('form').addEventListener('submit', async event => {
+        event.preventDefault();
+        const form = event.target;
+        const button = form.querySelector('[data-quick-save]');
+        const error = form.querySelector('[data-quick-error]');
+        const kind = quickSelect.dataset.createKind;
+        button.disabled = true;
+        error.hidden = true;
+        try {
+            const response = await fetch(`/transactions/options/${kind}`, {method: 'POST', body: new FormData(form)});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Could not create this item. Please try again.');
+            const option = new Option(data.name, kind === 'category' ? data.name : String(data.id), true, true);
+            option.dataset.label = data.name;
+            option.dataset.kind = kind === 'category' ? 'color' : 'none';
+            if (kind === 'category') {
+                option.dataset.color = data.color;
+                option.dataset.icon = data.icon || data.name[0];
+                form.elements.default_category.add(new Option(data.name, data.name));
+            } else {
+                option.dataset.defaultCategory = data.default_category || '';
             }
+            quickSelect.add(option);
+            quickSelect.dispatchEvent(new Event('optionschanged'));
+            quickSelect.dispatchEvent(new Event('change', {bubbles: true}));
+            quickDialog.close();
+        } catch (failure) {
+            error.textContent = failure.message || 'Could not connect. Try again.';
+            error.hidden = false;
+        } finally {
+            button.disabled = false;
         }
+    });
+}
 
-        setValue(element, from);
-        requestAnimationFrame(frame);
+const preferenceMode = document.querySelector('[data-preference-mode]');
+if (preferenceMode) {
+    function syncPreference() {
+        document.querySelector('[data-manual-account]').hidden = preferenceMode.value !== 'manual';
     }
-
-    function initKpiCountups() {
-        const values = document.querySelectorAll("[data-countup]");
-        if (!values.length) {
-            return;
-        }
-
-        values.forEach((element) => {
-            const target = Number(element.dataset.value || 0);
-            let from = 0;
-            let duration = 800;
-
-            if (element.dataset.countupKey === "net-balance") {
-                const previous = Number(localStorage.getItem(balanceKey));
-                if (Number.isFinite(previous) && Math.abs(previous - target) > 0.004) {
-                    from = previous;
-                    duration = 400;
-                }
-                localStorage.setItem(balanceKey, String(target));
-            }
-
-            animateValue(element, from, target, duration);
-        });
-    }
-
-    initKpiCountups();
-})();
+    preferenceMode.addEventListener('change', syncPreference);
+    syncPreference();
+}

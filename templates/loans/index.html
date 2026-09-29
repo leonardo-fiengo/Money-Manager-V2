@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-title">
-    <h1>Prestiti</h1>
+    <div class="title-copy"><p class="eyebrow">Between people</p><h1>Loans</h1></div>
     <a class="button" href="{{ url_for('loans.new') }}">Add Loan</a>
 </div>
 
@@ -29,7 +29,7 @@
         <td class="money">&euro;{{ "%.2f"|format(loan.expected_total_amount) }}</td>
         <td class="money">&euro;{{ "%.2f"|format(loan.paid_amount) }}</td>
         <td class="money">&euro;{{ "%.2f"|format(loan.outstanding_amount) }}</td>
-        <td>{{ loan.status }}</td>
+        <td>{{ loan.status|title }}</td>
         <td class="actions">
             <a class="action-link" href="{{ url_for('loans.detail', loan_id=loan.id) }}">Open</a>
             <a class="action-link" href="{{ url_for('loans.edit', loan_id=loan.id) }}">Edit</a>
@@ -37,7 +37,7 @@
         </td>
     </tr>
     {% else %}
-    <tr><td>No loans yet.</td></tr>
+    <tr><td colspan="9" class="empty-state">No loans yet.</td></tr>
     {% endfor %}
 </table>
 {% endblock %}

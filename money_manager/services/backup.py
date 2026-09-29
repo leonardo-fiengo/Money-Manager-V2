@@ -10,6 +10,10 @@ EXPORT_TABLES = [
     "loans",
     "loan_payments",
     "budgets",
+    "payment_preferences",
+    "balance_checks",
+    "transaction_trash",
+    "savings_pots",
 ]
 
 

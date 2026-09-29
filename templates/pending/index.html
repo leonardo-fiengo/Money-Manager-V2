@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-title">
-    <h1>Pending</h1>
+    <div class="title-copy"><p class="eyebrow">Coming up</p><h1>Pending</h1></div>
     <form method="post" action="{{ url_for('pending.execute_due') }}"><button>Execute Due</button></form>
 </div>
 <table>
     <tr><th>Date</th><th>Type</th><th>Description</th><th>Account</th><th>Amount</th><th></th></tr>
     {% for tx in pending %}
     <tr>
-        <td>{{ tx.date }}</td><td>{{ tx.type }}</td><td>{{ tx.description or tx.merchant_name or "" }}</td>
+        <td>{{ tx.date }}</td><td>{{ tx.type|title }}</td><td>{{ tx.description or tx.merchant_name or "" }}</td>
         <td>{{ tx.account_name }}{% if tx.destination_account_name %} &rarr; {{ tx.destination_account_name }}{% endif %}</td>
         <td class="money">{% if tx.currency == "USD" %}${% elif tx.currency == "GBP" %}&pound;{% elif tx.currency == "CHF" %}CHF {% else %}&euro;{% endif %}{{ "%.2f"|format(tx.amount) }}{% if tx.currency != "EUR" %} <span class="converted-amount">- EUR {{ "%.2f"|format(tx.amount_eur) }}</span>{% endif %}</td>
         <td><form method="post" action="{{ url_for('pending.post', transaction_id=tx.id) }}"><button>Post</button></form></td>
     </tr>
     {% else %}
-    <tr><td>No pending transactions.</td></tr>
+    <tr><td colspan="6" class="empty-state">No pending transactions.</td></tr>
     {% endfor %}
 </table>
 {% endblock %}

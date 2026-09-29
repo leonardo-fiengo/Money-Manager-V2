@@ -5,6 +5,7 @@ __pycache__/
 .coverage
 htmlcov/
 .venv/
+.build-venv/
 venv/
 env/
 .env
@@ -12,3 +13,6 @@ data/*.sqlite3
 data/*.db
 data/*.log
 *.log
+build/
+dist/
+*.spec

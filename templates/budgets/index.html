@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-title">
-    <h1>Budgets</h1>
+    <div class="title-copy"><p class="eyebrow">Plan your month</p><h1>Budgets</h1></div>
 </div>
 
 <section class="grid metrics">
@@ -59,7 +59,7 @@
         </td>
     </tr>
     {% else %}
-    <tr><td>No budgets for this month.</td></tr>
+    <tr><td colspan="6" class="empty-state">No budgets for this month.</td></tr>
     {% endfor %}
 </table>
 {% endblock %}

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ "Edit" if rule else "Add" }} Recurring Rule</h1>
+<div class="page-title"><div class="title-copy"><p class="eyebrow">On repeat</p><h1>{{ "Edit" if rule else "Add" }} Recurring Rule</h1></div></div>
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
 <form class="form" method="post">
     <label>Name <input name="name" value="{{ rule.name if rule else '' }}" required></label>

@@ -22,7 +22,8 @@ def add_frequency(value, frequency):
     if frequency == "weekly":
         return current + timedelta(weeks=1)
     if frequency == "yearly":
-        return current.replace(year=current.year + 1)
+        year = current.year + 1
+        return current.replace(year=year, day=min(current.day, calendar.monthrange(year, current.month)[1]))
     if frequency == "monthly":
         month = current.month + 1
         year = current.year + (month - 1) // 12

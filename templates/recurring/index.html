@@ -2,7 +2,7 @@
 {% from "_macros.html" import recurring_visual %}
 {% block content %}
 <div class="page-title">
-    <h1>Recurring</h1>
+    <div class="title-copy"><p class="eyebrow">On repeat</p><h1>Recurring</h1></div>
     <div class="inline-actions">
         <form method="post" action="{{ url_for('recurring.generate') }}"><button>Generate Due</button></form>
         <a class="button" href="{{ url_for('recurring.new') }}">Add Rule</a>
@@ -16,10 +16,10 @@
             {{ recurring_visual(rule) }}
         </td>
         <td>{{ rule.name }}</td>
-        <td>{{ rule.type }}</td>
+        <td>{{ rule.type|title }}</td>
         <td><span class="category-inline">{% if rule.account_logo %}<img class="account-logo tiny" src="{{ rule.account_logo }}" alt="{{ rule.account_name }}">{% endif %}{{ rule.account_name }}</span></td>
         <td>{{ rule.merchant_name or "" }}</td>
-        <td>{{ rule.frequency }}</td>
+        <td>{{ rule.frequency|title }}</td>
         <td>{{ rule.next_due_date }}</td>
         <td class="money">&euro;{{ "%.2f"|format(rule.amount) }}</td>
         <td class="actions">
@@ -27,6 +27,8 @@
             <form method="post" action="{{ url_for('recurring.delete', rule_id=rule.id) }}" data-confirm="Delete this recurring rule?"><button class="danger-link">Delete</button></form>
         </td>
     </tr>
+    {% else %}
+    <tr><td colspan="9" class="empty-state">No recurring payments yet.</td></tr>
     {% endfor %}
 </table>
 {% endblock %}

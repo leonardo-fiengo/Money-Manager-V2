@@ -1,25 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ "Edit" if tx else "Add" }} Transaction</h1>
+<div class="page-title"><div><p class="eyebrow">Your everyday money</p><h1>{{ "Edit" if editing else "Add" }} transaction</h1></div></div>
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-<form class="form" method="post">
-    <label>Date
+<form class="form transaction-form" method="post" data-transaction-form data-editing="{{ 'true' if editing else 'false' }}">
+    <label class="field-date">Date
         <span class="date-control">
             <span class="date-icon" aria-hidden="true"></span>
-            <input type="date" name="date" value="{{ tx.date if tx else '' }}" required>
+            <input type="date" name="date" value="{{ tx.date if tx else today }}" required>
         </span>
     </label>
-    <label>Type
+    <label class="field-type">Type
         <span class="select-with-visual">
             <span class="select-leading" aria-hidden="true"></span>
             <select name="type" data-visual-select required>
             {% for type in ["expense", "income", "investment", "transfer"] %}
-            <option value="{{ type }}" data-label="{{ type }}" data-kind="type" data-symbol="{% if type == 'income' %}&uarr;{% elif type == 'expense' %}&darr;{% elif type == 'transfer' %}&harr;{% else %}&nearr;{% endif %}" data-tone="{{ type }}" {% if tx and tx.type == type %}selected{% endif %}>{{ type }}</option>
+            <option value="{{ type }}" data-label="{{ type|title }}" data-kind="type" data-symbol="{% if type == 'income' %}&uarr;{% elif type == 'expense' %}&darr;{% elif type == 'transfer' %}&harr;{% else %}&nearr;{% endif %}" data-tone="{{ type }}" {% if tx and tx.type == type %}selected{% endif %}>{{ type }}</option>
             {% endfor %}
             </select>
         </span>
     </label>
-    <label>Amount
+    <label class="field-amount">Amount
         <span class="amount-control">
             <select name="currency" aria-label="Currency">
                 {% for currency, sign in [("EUR", "€"), ("USD", "$"), ("GBP", "£"), ("CHF", "CHF")] %}
@@ -29,7 +29,7 @@
             <input type="number" step="0.01" min="0" name="amount" value="{{ tx.amount if tx else '' }}" placeholder="0.00" required>
         </span>
     </label>
-    <label>Account
+    <label class="field-account">Payment account
         <span class="select-with-visual">
             <span class="select-leading" aria-hidden="true"></span>
             <select name="account_id" data-visual-select required>
@@ -38,8 +38,9 @@
                 {% endfor %}
             </select>
         </span>
+        {% if not editing %}<small class="field-help">{{ 'Your main payment method' if preference.mode == 'manual' else 'Suggested from recent purchases' }} · <a href="{{ url_for('accounts.index') }}">Change preference</a></small>{% endif %}
     </label>
-    <label>Destination Account
+    <label class="field-destination" data-destination>Destination account
         <span class="select-with-visual">
             <span class="select-leading" aria-hidden="true"></span>
             <select name="destination_account_id" data-visual-select>
@@ -51,22 +52,22 @@
         </span>
     </label>
     <label>
-        <span class="field-heading"><span>Merchant</span><a href="{{ url_for('merchants.new') }}">Add new</a></span>
+        <span>Merchant</span>
         <span class="select-with-visual">
             <span class="select-leading" aria-hidden="true"></span>
-            <select name="merchant_id" data-visual-select>
+            <select name="merchant_id" data-visual-select data-create-kind="merchant">
             <option value="" data-label="None" data-kind="none">None</option>
             {% for merchant in merchants %}
-            <option value="{{ merchant.id }}" data-label="{{ merchant.name }}" data-kind="logo" data-logo="{{ merchant.logo or '' }}" {% if tx and tx.merchant_id|string == merchant.id|string %}selected{% endif %}>{{ merchant.name }}</option>
+            <option value="{{ merchant.id }}" data-label="{{ merchant.name }}" data-kind="logo" data-logo="{{ merchant.logo or '' }}" data-default-category="{{ merchant.default_category or '' }}" {% if tx and tx.merchant_id|string == merchant.id|string %}selected{% endif %}>{{ merchant.name }}</option>
             {% endfor %}
             </select>
         </span>
     </label>
     <label>
-        <span class="field-heading"><span>Category</span><a href="{{ url_for('categories.new') }}">Add new</a></span>
+        <span>Category</span>
         <span class="select-with-visual">
             <span class="select-leading" aria-hidden="true"></span>
-            <select name="category" data-visual-select>
+            <select name="category" data-visual-select data-create-kind="category">
             <option value="" data-label="None" data-kind="none">None</option>
             {% for category in categories %}
             <option value="{{ category.name }}" data-label="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}" {% if tx and tx.category == category.name %}selected{% endif %}>{{ category.name }}</option>
@@ -74,14 +75,28 @@
             </select>
         </span>
     </label>
-    <label>Description <input name="description" value="{{ tx.description if tx else '' }}"></label>
+    <label class="field-description">Description <input name="description" value="{{ (tx.description or '') if tx else '' }}" placeholder="What was it for?"></label>
     <label>Status
         <select name="status">
             {% for status in ["posted", "pending"] %}
-            <option value="{{ status }}" {% if tx and tx.status == status %}selected{% endif %}>{{ status }}</option>
+            <option value="{{ status }}" {% if tx and tx.status == status %}selected{% endif %}>{{ 'Completed' if status == 'posted' else 'Pending' }}</option>
             {% endfor %}
         </select>
     </label>
-    <button>Save</button>
+    <div class="form-footer"><a class="quiet-button" href="{{ url_for('transactions.index') }}">Cancel</a><span></span>
+        {% if not editing %}<button class="secondary-button" name="after_save" value="another">Save and add another</button>{% endif %}
+        <button>Save transaction</button>
+    </div>
 </form>
+<dialog class="quick-dialog" data-quick-dialog aria-labelledby="quick-title">
+    <form data-quick-form>
+        <div class="page-title"><h2 id="quick-title">Add new</h2><button type="button" class="quiet-button" data-dialog-close aria-label="Close dialog">×</button></div>
+        <p class="muted-text">Your transaction stays right here.</p>
+        <p class="form-error" data-quick-error hidden role="alert"></p>
+        <label>Name <input name="name" maxlength="100" required autocomplete="off"></label>
+        <label data-category-type>Type <select name="type">{% for type in ['expense', 'income', 'investment', 'transfer', 'any'] %}<option value="{{ type }}">{{ type|title }}</option>{% endfor %}</select></label>
+        <label data-merchant-category>Default category <select name="default_category"><option value="">None</option>{% for category in categories %}<option value="{{ category.name }}">{{ category.name }}</option>{% endfor %}</select></label>
+        <div class="dialog-actions"><button type="button" class="secondary-button" data-dialog-close>Cancel</button><button data-quick-save>Create and select</button></div>
+    </form>
+</dialog>
 {% endblock %}

@@ -6,21 +6,22 @@
         <h1>Dashboard</h1>
     </div>
     <div class="hero-balance">
-        <span>Net Balance</span>
+        <span>Current net balance &middot; all accounts</span>
         <strong class="kpi-value" data-countup data-countup-key="net-balance" data-value="{{ '%.2f'|format(metrics.net_balance) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.net_balance) }}</strong>
     </div>
 </section>
 
+<div class="dashboard-period"><p class="muted-text">Income, spending and charts &middot; <strong>{{ period.label }}</strong></p><form method="get"><input type="hidden" name="account_sort" value="{{ account_sort }}"><label class="sr-only" for="dashboard-period">Dashboard period</label><select id="dashboard-period" name="period" onchange="this.form.submit()">{% for key, label in [('month', 'This month'), ('last_month', 'Last month'), ('year', 'This year'), ('all', 'All time')] %}<option value="{{ key }}" {% if period.period == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form></div>
 <section class="metrics metrics-band" data-kpi-cards>
-    <a class="metric-card metric-income" href="{{ url_for('transactions.index', type='income') }}" aria-label="View income transactions">
+    <a class="metric-card metric-income" href="{{ url_for('transactions.index', type='income', start=period.start, end=period.end) }}" aria-label="View income transactions">
         <span class="metric-icon">&uarr;</span>
         <div><span>Income</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(metrics.income) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.income) }}</strong></div>
     </a>
-    <a class="metric-card metric-expense" href="{{ url_for('transactions.index', type='expense') }}" aria-label="View expense transactions">
+    <a class="metric-card metric-expense" href="{{ url_for('transactions.index', type='expense', start=period.start, end=period.end) }}" aria-label="View expense transactions">
         <span class="metric-icon">&darr;</span>
         <div><span>Expenses</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(metrics.expenses) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.expenses) }}</strong></div>
     </a>
-    <a class="metric-card metric-investment" href="{{ url_for('transactions.index', type='investment') }}" aria-label="View investment transactions">
+    <a class="metric-card metric-investment" href="{{ url_for('transactions.index', type='investment', start=period.start, end=period.end) }}" aria-label="View investment transactions">
         <span class="metric-icon">&nearr;</span>
         <div><span>Investments</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(metrics.investments) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.investments) }}</strong></div>
     </a>
@@ -30,11 +31,11 @@
     </a>
     <a class="metric-card metric-loan-in" href="{{ url_for('loans.index') }}" aria-label="View loans to receive">
         <span class="metric-icon">&larr;</span>
-        <div><span>Prestiti To Receive</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(loan_summary.to_receive) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(loan_summary.to_receive) }}</strong></div>
+        <div><span>Loans to receive &middot; current</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(loan_summary.to_receive) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(loan_summary.to_receive) }}</strong></div>
     </a>
     <a class="metric-card metric-loan-out" href="{{ url_for('loans.index') }}" aria-label="View loans to pay">
         <span class="metric-icon">&rarr;</span>
-        <div><span>Prestiti To Pay</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(loan_summary.to_pay) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(loan_summary.to_pay) }}</strong></div>
+        <div><span>Loans to pay &middot; current</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(loan_summary.to_pay) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(loan_summary.to_pay) }}</strong></div>
     </a>
 </section>
 
@@ -58,8 +59,8 @@
 <section class="split dashboard-lists">
     <div class="dashboard-accounts dashboard-panel-list">
         <div class="dashboard-panel-heading">
-            <h2>Accounts</h2>
-            <form class="dashboard-sort-form" method="get">
+            <h2>Accounts</h2><a class="quiet-button" href="{{ url_for('accounts.check') }}">Check balances</a>
+            <form class="dashboard-sort-form" method="get"><input type="hidden" name="period" value="{{ period.period }}">
                 <select name="account_sort" aria-label="Accounts order" onchange="this.form.submit()">
                     <option value="name" {% if account_sort == 'name' %}selected{% endif %}>Name</option>
                     <option value="amount" {% if account_sort == 'amount' %}selected{% endif %}>Amount</option>
@@ -84,10 +85,12 @@
         </div>
     </div>
     <div class="dashboard-panel-list">
-        <h2>Upcoming</h2>
+        <h2>Next 30 days</h2>
+        <div class="upcoming-summary"><span>Scheduled outgoing <strong>&euro;{{ '%.2f'|format(upcoming.outgoing) }}</strong></span><span>Projected net balance <strong>&euro;{{ '%.2f'|format(upcoming.projected) }}</strong></span></div>
+        <p class="field-help">Through {{ upcoming.end }}. Includes pending payments and active recurring rules; excludes unrecorded spending. Transfers do not change the total.</p>
         <div class="dashboard-list">
-            {% for tx in pending %}
-            <a class="dashboard-row pending-row" href="{{ url_for('pending.index') }}">
+            {% for tx in upcoming.rows %}
+            <a class="dashboard-row pending-row" href="{{ url_for('recurring.index') if tx.source == 'recurring' else url_for('pending.index') }}">
                 {% if tx.merchant_logo %}
                 <img class="dashboard-row-logo" src="{{ tx.merchant_logo }}" alt="">
                 {% elif tx.category_icon %}
@@ -103,7 +106,7 @@
                 <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(tx.amount_eur or tx.amount) }}</span>
             </a>
             {% else %}
-            <div class="dashboard-empty">No pending transactions.</div>
+            <div class="dashboard-empty">Nothing scheduled in the next 30 days.</div>
             {% endfor %}
         </div>
     </div>
@@ -131,7 +134,7 @@
         <h2>Expenses by Category</h2>
         <div class="dashboard-list">
             {% for row in categories %}
-            <a class="dashboard-row category-row" href="{{ url_for('transactions.index', category=row.category) }}">
+            <a class="dashboard-row category-row" href="{{ url_for('transactions.index', category=row.category, start=period.start, end=period.end) }}">
                 <span class="dashboard-row-logo dashboard-category-logo" style="--category-color: {{ row.color }}" data-icon="{{ row.icon }}"></span>
                 <span class="dashboard-row-main"><strong>{{ row.category }}</strong><small>Category spending</small></span>
                 <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(row.total) }}</span>

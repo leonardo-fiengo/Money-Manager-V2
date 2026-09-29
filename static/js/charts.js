@@ -110,7 +110,7 @@
             return;
         }
         new Chart(canvas, {
-            type: "line",
+            type: rows.length === 1 ? "bar" : "line",
             data: {
                 labels,
                 datasets: [
@@ -248,7 +248,8 @@
 
     async function initDashboard() {
         if (!hasCanvas("dashboardMonthlyChart") && !hasCanvas("dashboardCategoryChart")) return;
-        const data = await loadJson("/api/dashboard");
+        const period = new URLSearchParams(window.location.search).get('period') || 'month';
+        const data = await loadJson(`/api/dashboard?period=${encodeURIComponent(period)}`);
         renderMonthlyChart("dashboardMonthlyChart", data.monthly || []);
         renderCategoryChart("dashboardCategoryChart", data.categories || []);
     }

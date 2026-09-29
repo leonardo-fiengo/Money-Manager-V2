@@ -99,6 +99,39 @@ CREATE TABLE IF NOT EXISTS budgets (
     UNIQUE (month, category_id)
 );
 
+CREATE TABLE IF NOT EXISTS payment_preferences (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    mode TEXT NOT NULL DEFAULT 'auto' CHECK (mode IN ('auto', 'manual')),
+    account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS balance_checks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+    expected REAL NOT NULL,
+    actual REAL NOT NULL,
+    adjustment REAL NOT NULL DEFAULT 0,
+    note TEXT NOT NULL DEFAULT '',
+    batch_id TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (batch_id, account_id)
+);
+
+CREATE TABLE IF NOT EXISTS transaction_trash (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    payload TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    restored_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS savings_pots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    target REAL NOT NULL CHECK (target > 0),
+    reserved REAL NOT NULL DEFAULT 0 CHECK (reserved >= 0),
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);

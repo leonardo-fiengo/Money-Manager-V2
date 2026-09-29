@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><div><p class="eyebrow">A little peace of mind</p><h1>Check balances</h1></div><a class="quiet-button" href="{{ url_for('accounts.index') }}">Back to accounts</a></div>
+<p class="page-intro">Count your cash and enter your bank or card's booked balance, before pending holds. Leave any account you don't want to check blank. All balances are in EUR; money owed on a credit card is negative.</p>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+{% if not rows %}
+<form method="post" class="balance-form">
+    <div class="balance-grid">
+    {% for account in accounts if account.is_active %}
+    <article class="balance-card">
+        <div class="balance-card-heading">{% if account.logo %}<img class="account-logo" src="{{ account.logo }}" alt="">{% endif %}<h2>{{ account.name }}</h2></div>
+        <p class="muted-text">In the app <strong class="money">€{{ '%.2f'|format(account.balance) }}</strong></p>
+        <label>Actual {{ account.name }} balance (€)<input type="number" step="0.01" name="actual_{{ account.id }}" value="{{ values.get('actual_' ~ account.id, '') }}" placeholder="Enter balance"></label>
+        <small class="field-help">{% if account.last_check %}Last checked {{ account.last_check[:10] }}{% else %}No balance checks yet{% endif %}</small>
+    </article>
+    {% endfor %}
+    </div>
+    <div class="dialog-actions"><button>Compare balances</button></div>
+</form>
+{% else %}
+<form method="post" class="reconcile-preview">
+    <input type="hidden" name="action" value="save"><input type="hidden" name="token" value="{{ token }}">
+    <div class="balance-grid">
+    {% for row in rows %}
+    <article class="balance-card {{ 'is-matched' if not row.difference else 'has-difference' }}">
+        <h2>{{ row.name }}</h2>
+        <dl class="balance-comparison"><div><dt>In the app</dt><dd>€{{ '%.2f'|format(row.balance) }}</dd></div><div><dt>Actual</dt><dd>€{{ '%.2f'|format(row.actual) }}</dd></div></dl>
+        <p class="difference-label">{% if not row.difference %}✓ All matched{% else %}€{{ '%.2f'|format(row.difference|abs) }} {{ 'more' if row.difference > 0 else 'less' }} than recorded{% endif %}</p>
+        {% if row.hints %}<ul class="balance-hints">{% for hint in row.hints %}<li>{{ hint }}</li>{% endfor %}</ul>{% endif %}
+        {% if row.difference %}<a href="{{ url_for('transactions.index', account_id=row.id) }}" target="_blank" rel="noopener">Review transactions ↗</a>
+        <label class="check adjustment-choice"><input type="checkbox" name="adjust" value="{{ row.id }}"> Record a {{ '%+.2f'|format(row.difference) }} EUR adjustment</label>{% endif %}
+    </article>
+    {% endfor %}
+    </div>
+    <div class="reconcile-footer"><label>Note (optional)<input name="note" maxlength="500" placeholder="For example: counted wallet cash"></label><p class="field-help">Save records this check. Only selected adjustments change balances. Adjustments stay separate from income and spending.</p><div class="dialog-actions"><a class="quiet-button" href="{{ url_for('accounts.check') }}">Start again</a><button>Save balance check</button></div></div>
+</form>
+{% endif %}
+{% if history %}
+<h2 class="section-title">Recent balance checks</h2>
+<div class="table-scroll"><table><tr><th>Date</th><th>Account</th><th>App</th><th>Actual</th><th>Adjustment</th><th>Result / note</th></tr>
+{% for row in history %}<tr><td>{{ row.created_at }}</td><td>{{ row.account_name }}</td><td>€{{ '%.2f'|format(row.expected) }}</td><td>€{{ '%.2f'|format(row.actual) }}</td><td>{{ '%+.2f'|format(row.adjustment) }} EUR</td><td>{{ 'Adjusted' if row.adjustment else ('Matched' if row.actual == row.expected else 'Unresolved') }}{% if row.note %}<small class="cell-note">{{ row.note }}</small>{% endif %}</td></tr>{% endfor %}</table></div>
+{% endif %}
+{% endblock %}

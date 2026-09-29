@@ -1,8 +1,14 @@
+import sys
 from pathlib import Path
 
 
-BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
+RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+APP_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else RESOURCE_DIR
+DATA_DIR = APP_DIR / "data"
 DATABASE = DATA_DIR / "money_manager.sqlite3"
-MERCHANT_LOGO_DIR = BASE_DIR / "static" / "uploads" / "merchants"
+MERCHANT_LOGO_DIR = (
+    DATA_DIR / "uploads" / "merchants"
+    if getattr(sys, "frozen", False)
+    else RESOURCE_DIR / "static" / "uploads" / "merchants"
+)
 SECRET_KEY = "local-dev-secret-key"

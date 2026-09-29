@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ "Edit" if category else "Add" }} Category</h1>
+<div class="page-title"><div class="title-copy"><p class="eyebrow">Make sense of spending</p><h1>{{ "Edit" if category else "Add" }} Category</h1></div></div>
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
 <form class="form" method="post">
     <label>Name <input name="name" value="{{ category.name if category else '' }}" required></label>

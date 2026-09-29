@@ -1,6 +1,16 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-title"><h1>Accounts</h1><a class="button" href="{{ url_for('accounts.new') }}">Add Account</a></div>
+<div class="page-title"><div><p class="eyebrow">Where your money lives</p><h1>Accounts</h1></div><div class="inline-actions"><a class="button secondary-button" href="{{ url_for('accounts.check') }}">Check balances</a><a class="button" href="{{ url_for('accounts.new') }}">Add account</a></div></div>
+<details class="preference-panel" open>
+    <summary>Main payment method</summary>
+    <p class="muted-text">Choose what appears first when you add a transaction. You can always pick a different account.</p>
+    <form class="preference-form" method="post" action="{{ url_for('accounts.preference') }}">
+        <label>Choose for me <select name="mode" data-preference-mode><option value="auto" {% if preference.mode == 'auto' %}selected{% endif %}>Automatic · recent purchases</option><option value="manual" {% if preference.mode == 'manual' %}selected{% endif %}>Manual · always use my choice</option></select></label>
+        <label data-manual-account>Main account <select name="account_id">{% for account in payment_accounts %}<option value="{{ account.id }}" {% if preference.account_id == account.id %}selected{% endif %}>{{ account.name }}</option>{% endfor %}</select></label>
+        <button>Save preference</button>
+    </form>
+    <p class="field-help">{% if payment_accounts %}Currently first: <strong>{{ payment_accounts[0].name }}</strong>. {% endif %}Automatic ordering counts completed purchases, giving more weight to recent ones.</p>
+</details>
 <table class="accounts-table">
     <tr><th></th><th>Name</th><th>Type</th><th>Opening</th><th>Balance</th><th></th></tr>
     {% for account in accounts %}
@@ -10,8 +20,8 @@
             <img class="account-logo" src="{{ account.logo }}" alt="{{ account.name }}">
             {% endif %}
         </td>
-        <td>{{ account.name }}</td>
-        <td>{{ account.type }}</td>
+        <td>{{ account.name }}{% if account.last_check %}<small class="cell-note">Checked {{ account.last_check[:10] }}{% if not account.last_check_matched %} · difference unresolved{% endif %}</small>{% else %}<small class="cell-note">Not checked yet</small>{% endif %}</td>
+        <td>{{ account.type.replace('_', ' ')|capitalize }}{% if not account.is_active %}<small class="cell-note">Inactive</small>{% endif %}</td>
         <td>&euro;{{ "%.2f"|format(account.opening_balance) }}</td>
         <td class="money">&euro;{{ "%.2f"|format(account.balance) }}</td>
         <td><a class="action-link" href="{{ url_for('accounts.edit', account_id=account.id) }}">Edit</a></td>

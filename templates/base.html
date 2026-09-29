@@ -4,9 +4,10 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Money Manager</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=asset_version('css/app.css')) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/refinements.css', v=asset_version('css/refinements.css')) }}">
 </head>
-<body>
+<body class="page-{{ request.blueprint or 'dashboard' }}">
     <header class="topbar">
         <div class="topbar-inner">
             <a class="brand" href="{{ url_for('dashboard.index') }}">
@@ -20,7 +21,9 @@
                     <div class="nav-dropdown">
                         <a href="{{ url_for('transactions.index') }}">Transactions</a>
                         <a href="{{ url_for('accounts.index') }}">Accounts</a>
+                        <a href="{{ url_for('accounts.check') }}">Check balances</a>
                         <a href="{{ url_for('budgets.index') }}">Budgets</a>
+                        <a href="{{ url_for('accounts.pots') }}">Savings pots</a>
                         <a href="{{ url_for('paypal_transfer.index') }}">PayPal Transfer</a>
                     </div>
                 </div>
@@ -29,7 +32,7 @@
                     <div class="nav-dropdown">
                         <a href="{{ url_for('recurring.index') }}">Recurring</a>
                         <a href="{{ url_for('pending.index') }}">Pending</a>
-                        <a href="{{ url_for('loans.index') }}">Prestiti</a>
+                        <a href="{{ url_for('loans.index') }}">Loans</a>
                         <a href="{{ url_for('forecast.index') }}">Forecast</a>
                     </div>
                 </div>
@@ -47,10 +50,18 @@
         </div>
     </header>
     <main class="page">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+        <div class="notice notice-{{ category }}" role="status">
+            {% if category == 'undo_transaction' %}
+            <span>Transaction deleted.</span>
+            <form method="post" action="{{ url_for('transactions.restore', trash_id=message|int) }}"><button class="quiet-button">Undo</button></form>
+            {% else %}{{ message }}{% endif %}
+        </div>
+        {% endfor %}
         {% block content %}{% endblock %}
     </main>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/app.js', v=asset_version('js/app.js')) }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js', v=asset_version('js/charts.js')) }}"></script>
 </body>
 </html>

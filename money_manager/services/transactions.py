@@ -1,3 +1,7 @@
+import json
+import math
+from datetime import date
+
 from money_manager.db.connection import get_db
 from money_manager.services.accounts import get_account
 from money_manager.utils.dates import next_settlement_date, today_iso
@@ -34,6 +38,10 @@ def list_transactions(filters=None, include_pending=False):
         where.append("(t.description LIKE ? OR m.name LIKE ? OR t.category LIKE ?)")
         term = f"%{filters['search']}%"
         params.extend([term, term, term])
+    for key, operator in (("start", ">="), ("end", "<=")):
+        if filters.get(key):
+            where.append(f"t.date {operator} ?")
+            params.append(filters[key])
 
     sql = """
         SELECT t.*, a.name AS account_name, a.logo AS account_logo,
@@ -146,9 +154,38 @@ def create_settlement_for_transaction(transaction_id):
 
 def delete_transaction(transaction_id):
     db = get_db()
-    db.execute("DELETE FROM transactions WHERE settlement_for_transaction_id = ?", (transaction_id,))
-    db.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
-    db.commit()
+    with db:
+        rows = db.execute("SELECT * FROM transactions WHERE id = ? OR settlement_for_transaction_id = ? ORDER BY id", (transaction_id, transaction_id)).fetchall()
+        if not rows:
+            return None
+        cursor = db.execute("INSERT INTO transaction_trash (payload) VALUES (?)", (json.dumps([dict(row) for row in rows]),))
+        db.execute("DELETE FROM transactions WHERE settlement_for_transaction_id = ?", (transaction_id,))
+        db.execute("DELETE FROM transactions WHERE id = ?", (transaction_id,))
+    return cursor.lastrowid
+
+
+def restore_transaction(trash_id):
+    db = get_db()
+    try:
+        db.execute("BEGIN IMMEDIATE")
+        trash = db.execute("SELECT * FROM transaction_trash WHERE id = ? AND restored_at IS NULL", (trash_id,)).fetchone()
+        if not trash:
+            raise ValueError("This transaction has already been restored or is unavailable.")
+        rows = json.loads(trash["payload"])
+        for row in sorted(rows, key=lambda r: bool(r["settlement_for_transaction_id"])):
+            if db.execute("SELECT 1 FROM transactions WHERE id = ?", (row["id"],)).fetchone():
+                raise ValueError("A transaction with this ID already exists. Nothing was restored.")
+            # Removed recurring rules or merchants must not prevent recovery.
+            for column, table in (("merchant_id", "merchants"), ("recurring_rule_id", "recurring_rules"), ("settlement_for_transaction_id", "transactions")):
+                if row[column] and not db.execute(f"SELECT 1 FROM {table} WHERE id = ?", (row[column],)).fetchone():
+                    row[column] = None
+            columns = list(row)
+            db.execute(f"INSERT INTO transactions ({','.join(columns)}) VALUES ({','.join('?' for _ in columns)})", [row[c] for c in columns])
+        db.execute("UPDATE transaction_trash SET restored_at = CURRENT_TIMESTAMP WHERE id = ?", (trash_id,))
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
 
 
 def _validate_transaction_data(data):
@@ -164,12 +201,16 @@ def _validate_transaction_data(data):
         raise ValueError("Unsupported transaction type.")
     if status not in STATUSES:
         raise ValueError("Unsupported transaction status.")
-    if amount <= 0:
+    if not math.isfinite(amount) or amount <= 0:
         raise ValueError("Amount must be greater than zero.")
     if len(currency) != 3:
         raise ValueError("Currency must be a 3-letter code.")
     if not account:
         raise ValueError("Transaction account is required.")
+    try:
+        date.fromisoformat(_value(data, "date") or today_iso())
+    except ValueError:
+        raise ValueError("Enter a valid transaction date.") from None
     if tx_type == "transfer":
         if not destination_id:
             raise ValueError("Transfers require a destination account.")
