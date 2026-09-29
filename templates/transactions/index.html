@@ -18,8 +18,11 @@
         {% endfor %}
     </select>
     <input name="category" aria-label="Category" placeholder="Category" value="{{ filters.category or '' }}">
-    <label>From <input type="date" name="start" value="{{ filters.start or '' }}"></label>
-    <label>To <input type="date" name="end" value="{{ filters.end or '' }}"></label>
+    <div class="date-range-control" data-date-range>
+        <span class="date-range-label">Date range</span>
+        <input type="hidden" name="start" value="{{ filters.start or '' }}">
+        <input type="hidden" name="end" value="{{ filters.end or '' }}">
+    </div>
     <button>Filter</button>
 </form>
 <div class="table-scroll"><table class="transaction-table">

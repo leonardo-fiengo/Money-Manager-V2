@@ -125,8 +125,14 @@ function updateEnhancedTrigger(wrapper, select) {
 }
 
 function enhanceSelect(select) {
-    const wrapper = select.closest(".select-with-visual");
-    if (!wrapper || wrapper.classList.contains("enhanced-select")) {
+    let wrapper = select.closest(".select-with-visual");
+    if (!wrapper) {
+        wrapper = document.createElement("span");
+        wrapper.className = "select-with-visual soft-select";
+        select.parentNode.insertBefore(wrapper, select);
+        wrapper.appendChild(select);
+    }
+    if (wrapper.classList.contains("enhanced-select")) {
         return;
     }
 
@@ -137,7 +143,8 @@ function enhanceSelect(select) {
     trigger.setAttribute("aria-haspopup", "listbox");
     trigger.setAttribute("aria-expanded", "false");
     const fieldNames = {merchant_id: 'Merchant', category: 'Category', account_id: 'Payment account', destination_account_id: 'Destination account'};
-    trigger.setAttribute("aria-label", fieldNames[select.name] || select.closest("label")?.firstChild.textContent.trim() || select.name);
+    const linkedLabel = select.id && document.querySelector(`label[for="${CSS.escape(select.id)}"]`);
+    trigger.setAttribute("aria-label", select.getAttribute("aria-label") || linkedLabel?.textContent.trim() || fieldNames[select.name] || select.closest("label")?.firstChild.textContent.trim() || select.name);
 
     const menu = document.createElement("div");
     menu.className = "enhanced-menu";
@@ -221,7 +228,6 @@ function enhanceSelect(select) {
     wrapper.appendChild(trigger);
     wrapper.appendChild(menu);
     updateEnhancedTrigger(wrapper, select);
-    select.dispatchEvent(new Event("change"));
 }
 
 const datePickerState = {
@@ -574,6 +580,9 @@ document.querySelectorAll("[data-visual-select]").forEach((select) => {
     updateSelectVisual(select);
     select.addEventListener("change", () => updateSelectVisual(select));
     enhanceSelect(select);
+});
+document.querySelectorAll("select:not([data-visual-select]):not(:disabled)").forEach((select) => {
+    if (!select.closest(".amount-control")) enhanceSelect(select);
 });
 
 document.querySelectorAll("[data-paypal-calculator]").forEach((calculator) => {
