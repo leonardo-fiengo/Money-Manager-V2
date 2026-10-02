@@ -1,11 +1,13 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
-<div class="page-title">
-    <h1>Transactions</h1>
-</div>
-<form class="filters" method="get">
-    <input name="search" aria-label="Search transactions" placeholder="Search transactions" value="{{ filters.search or '' }}">
-    <select name="type" aria-label="Transaction type">
+<div class="page-title"><div><p class="eyebrow">Your activity</p><h1>Transactions</h1></div><div class="inline-actions"><a class="secondary-button" href="{{ url_for('transactions.import_csv') }}">Import CSV</a></div></div>
+<div class="transaction-controls"><form class="filters transaction-filters" method="get">
+    {% if request.args.get('mode') == 'table' %}<input type="hidden" name="mode" value="table">{% endif %}
+    {% if filters.needs_category %}<input type="hidden" name="needs_category" value="1">{% endif %}
+    {% if filters.account_activity %}<input type="hidden" name="account_activity" value="1">{% endif %}
+    <label class="transaction-search">{{ icon('search') }}<input name="search" aria-label="Search transactions" placeholder="Search transactions" value="{{ filters.search or '' }}"></label>
+    <details class="filter-more"><summary>{{ icon('filter') }}Filters{% set active_filters = [filters.type, filters.account_id, filters.category, filters.tag, filters.start, filters.end] | select | list %}{% if active_filters %} ({{ active_filters|length }}){% endif %}</summary><div class="filter-more-grid"><select name="type" aria-label="Transaction type">
         <option value="">All types</option>
         {% for type in ["expense", "income", "investment", "transfer"] %}
         <option value="{{ type }}" {% if filters.type == type %}selected{% endif %}>{{ type }}</option>
@@ -18,18 +20,38 @@
         {% endfor %}
     </select>
     <input name="category" aria-label="Category" placeholder="Category" value="{{ filters.category or '' }}">
+    <input name="tag" aria-label="Tag or project" placeholder="Tag / project" value="{{ filters.tag or '' }}">
     <div class="date-range-control" data-date-range>
         <span class="date-range-label">Date range</span>
         <input type="hidden" name="start" value="{{ filters.start or '' }}">
         <input type="hidden" name="end" value="{{ filters.end or '' }}">
+        <button type="button" class="date-range-trigger" aria-label="Choose transaction date range" aria-haspopup="dialog" aria-expanded="false"><span class="date-range-icon" aria-hidden="true"></span><span class="date-range-value">{{ (filters.start ~ ' – ' ~ filters.end) if filters.start and filters.end else 'Any date' }}</span><span class="choice-caret" aria-hidden="true"></span></button>
     </div>
-    <button>Filter</button>
-</form>
+    </div></details><button>Apply</button>
+</form><div class="transaction-view-tools"><span class="ledger-count">{{ pagination.total }} transactions</span><div class="transaction-view-switch" aria-label="Transaction view"><a class="{{ 'active' if request.args.get('mode') != 'table' else '' }}" href="{{ url_for('transactions.index', **dict(request.args, mode='list')) }}">Activity</a><a class="{{ 'active' if request.args.get('mode') == 'table' else '' }}" href="{{ url_for('transactions.index', **dict(request.args, mode='table')) }}">Table</a></div></div></div>
+{% if filters.type or filters.account_id or filters.category or filters.tag or filters.start or filters.end %}<div class="active-filter-chips">{% if filters.type %}<a href="{{ url_for('transactions.index', **dict(request.args, type='', page=1)) }}">{{ filters.type|title }} ×</a>{% endif %}{% if filters.account_id %}<a href="{{ url_for('transactions.index', **dict(request.args, account_id='', page=1)) }}">Account ×</a>{% endif %}{% if filters.category %}<a href="{{ url_for('transactions.index', **dict(request.args, category='', page=1)) }}">{{ filters.category }} ×</a>{% endif %}{% if filters.tag %}<a href="{{ url_for('transactions.index', **dict(request.args, tag='', page=1)) }}">{{ filters.tag }} ×</a>{% endif %}{% if filters.start or filters.end %}<a href="{{ url_for('transactions.index', **dict(request.args, start='', end='', page=1)) }}">Date range ×</a>{% endif %}<a class="filter-clear" href="{{ url_for('transactions.index') }}">Clear all</a></div>{% endif %}
+{% if filters.needs_category %}<p class="active-filter">Showing imported expenses without a category. <a href="{{ url_for('transactions.index') }}">Clear filter</a></p>{% endif %}
+
+{% if request.args.get('mode') != 'table' %}
+<div class="transaction-feed">
+{% set grouping = namespace(month='', day='') %}
+{% for tx in transactions %}
+    {% if tx.date[:7] != grouping.month %}<h2 class="transaction-month">{{ month_labels[tx.date[:7]] }}</h2>{% set grouping.month = tx.date[:7] %}{% endif %}
+    {% if tx.date != grouping.day %}<h3 class="transaction-day">{{ 'Today' if tx.date == today else 'Yesterday' if tx.date == yesterday else tx.date[8:10] ~ ' ' ~ month_labels[tx.date[:7]].split(' ')[0][:3] }}{{ ' · Future' if tx.status == 'pending' else '' }}</h3>{% set grouping.day = tx.date %}{% endif %}
+    <button type="button" class="transaction-feed-row" data-transaction-detail data-title="{{ tx.merchant_name or tx.description or tx.category or tx.type|title }}" data-amount="{{ '%.2f'|format(tx.amount) }}" data-currency="{{ tx.currency }}" data-date="{{ tx.date }}" data-type="{{ tx.type }}" data-account="{{ tx.account_name }}{% if tx.destination_account_name %} → {{ tx.destination_account_name }}{% endif %}" data-category="{{ tx.category or 'Uncategorized' }}" data-status="{{ tx.status }}" data-description="{{ tx.description or '' }}" data-tags="{{ tx.tags or '' }}" data-details-url="{{ url_for('transactions.details', transaction_id=tx.id) }}" data-edit-url="{{ url_for('transactions.edit', transaction_id=tx.id) }}" data-delete-url="{{ url_for('transactions.delete', transaction_id=tx.id) }}">
+        {% if tx.merchant_logo %}<img class="transaction-feed-icon" src="{{ tx.merchant_logo }}" alt="">{% else %}<span class="transaction-feed-icon transaction-feed-fallback">{% if tx.type == 'income' %}↑{% elif tx.type == 'transfer' %}↔{% elif tx.type == 'investment' %}↗{% else %}{{ (tx.merchant_name or tx.description or tx.category or 'E')[:1]|upper }}{% endif %}</span>{% endif %}
+        <span class="transaction-feed-copy"><strong>{{ tx.merchant_name or tx.description or tx.category or tx.type|title }}</strong><small class="transaction-feed-meta">{% if tx.category %}<span class="feed-category-icon" style="--category-color: {{ tx.category_color or '#64748b' }}" data-category-glyph="{{ tx.category_icon or tx.category[0] }}">{{ (tx.category_icon or tx.category[0])[:1]|upper }}</span>{% endif %}<span>{% if tx.link_kind %}{{ tx.link_kind|title }} for {{ tx.linked_expense_description or 'purchase' }}{% else %}{{ tx.category or tx.type|title }}{% endif %}</span><span class="feed-meta-separator">·</span>{% if tx.account_logo %}<img class="feed-account-icon" src="{{ tx.account_logo }}" alt="">{% endif %}<span>{{ tx.account_name }}{% if tx.destination_account_name %} → {{ tx.destination_account_name }}{% endif %}</span>{% if tx.status == 'pending' %}<span>· Future payment</span>{% endif %}{% if tx.tags %}<span>· {{ tx.tags }}</span>{% endif %}</small></span>
+        <strong class="transaction-feed-amount {{ tx.type }}">{{ '+' if tx.type == 'income' else '−' if tx.type != 'transfer' else '' }}{% if tx.currency == 'EUR' %}€{% elif tx.currency == 'USD' %}${% elif tx.currency == 'GBP' %}£{% else %}{{ tx.currency }} {% endif %}{{ '%.2f'|format(tx.amount) }}</strong>
+    </button>
+{% else %}<p class="empty-state">No transactions match these filters.</p>{% endfor %}
+</div>
+<dialog class="transaction-detail" data-transaction-dialog aria-label="Transaction details"><button type="button" class="transaction-detail-close" data-detail-close aria-label="Close">×</button><p class="eyebrow" data-detail-type></p><h2 data-detail-title></h2><strong class="transaction-detail-amount" data-detail-amount></strong><dl><div><dt>Date</dt><dd data-detail-date></dd></div><div><dt>Account</dt><dd data-detail-account></dd></div><div><dt>Category</dt><dd data-detail-category></dd></div><div><dt>Description</dt><dd data-detail-description></dd></div><div><dt>Tags</dt><dd data-detail-tags></dd></div></dl><div class="transaction-detail-actions"><a class="secondary-button" data-detail-edit>Edit</a><a class="quiet-button" data-detail-details>Splits &amp; tags</a><form method="post" data-detail-delete data-confirm="Delete this transaction?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger-link">Delete</button></form></div></dialog>
+{% else %}
 <div class="table-scroll"><table class="transaction-table">
-    <tr><th>Date</th><th>Type</th><th>Description</th><th>Account</th><th>Category</th><th>Status</th><th>Amount</th><th></th></tr>
+    <tr><th>Date</th><th>Type</th><th>Description</th><th>Account</th><th>Category</th><th>Amount</th><th></th></tr>
     {% for tx in transactions %}
     <tr>
-        <td>{{ tx.date }}</td>
+        <td>{{ tx.date|display_date }}{% if tx.status == 'pending' %}<small class="cell-note">Future payment</small>{% endif %}</td>
         <td>
             <span class="tx-type tx-type-{{ tx.type }}" aria-hidden="true">
                 {% if tx.type == "income" %}&uarr;{% elif tx.type == "expense" %}&darr;{% elif tx.type == "transfer" %}&harr;{% else %}&nearr;{% endif %}
@@ -54,14 +76,15 @@
             </span>
             {% endif %}
         </td>
-        <td><span class="status-pill status-{{ tx.status }}"><span></span>{{ tx.status }}</span></td>
         <td class="money">{% if tx.currency == "USD" %}${% elif tx.currency == "GBP" %}&pound;{% elif tx.currency == "CHF" %}CHF {% else %}&euro;{% endif %}{{ "%.2f"|format(tx.amount) }}{% if tx.currency != "EUR" %} <span class="converted-amount">- EUR {{ "%.2f"|format(tx.amount_eur) }}</span>{% endif %}</td>
         <td class="actions">
             <a class="action-link" href="{{ url_for('transactions.edit', transaction_id=tx.id) }}">Edit</a>
-            <form method="post" action="{{ url_for('transactions.delete', transaction_id=tx.id) }}"><button class="danger-link">Delete</button></form>
+            <form method="post" action="{{ url_for('transactions.delete', transaction_id=tx.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger-link">Delete</button></form>
         </td>
     </tr>
-    {% else %}<tr><td colspan="8" class="empty-state">No transactions match these filters.</td></tr>{% endfor %}
+    {% else %}<tr><td colspan="7" class="empty-state">No transactions match these filters.</td></tr>{% endfor %}
 </table></div>
+{% endif %}
+<nav class="pagination" aria-label="Transaction pages"><span>{{ pagination.first }}–{{ pagination.last }} of {{ pagination.total }} transactions</span><div>{% if pagination.page > 1 %}<a class="secondary-button" href="{{ url_for('transactions.index', **dict(request.args, page=pagination.page - 1)) }}">← Newer</a>{% endif %}<span>Page {{ pagination.page }} of {{ pagination.pages }}</span>{% if pagination.page < pagination.pages %}<a class="secondary-button" href="{{ url_for('transactions.index', **dict(request.args, page=pagination.page + 1)) }}">Older →</a>{% endif %}</div></nav>
 {% endblock %}
 

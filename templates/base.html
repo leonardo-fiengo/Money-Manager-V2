@@ -1,68 +1,81 @@
+{% from "_icons.html" import icon %}
 <!doctype html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Money Manager</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css', v=asset_version('css/app.css')) }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/refinements.css', v=asset_version('css/refinements.css')) }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/money-manager.css', v=asset_version('css/money-manager.css')) }}">
+    <script>try { document.documentElement.dataset.theme = localStorage.getItem('money-manager-theme') || 'light'; document.documentElement.dataset.balancesHidden = localStorage.getItem('money-manager-hide-balance') === '1' ? 'true' : 'false'; } catch (_) {}</script>
 </head>
 <body class="page-{{ request.blueprint or 'dashboard' }}">
-    <header class="topbar">
-        <div class="topbar-inner">
-            <a class="brand" href="{{ url_for('dashboard.index') }}">
-                <span class="brand-mark"><img src="{{ url_for('static', filename='img/brand-logo.svg') }}" alt="" aria-hidden="true"></span>
-                <span>Money Manager</span>
-            </a>
-            <nav>
-                <a class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}" href="{{ url_for('dashboard.index') }}">Dashboard</a>
-                <div class="nav-menu">
-                    <button class="nav-link nav-trigger {% if request.endpoint and (request.endpoint.startswith('transactions.') or request.endpoint.startswith('accounts.') or request.endpoint.startswith('budgets.') or request.endpoint.startswith('paypal_transfer.')) %}active{% endif %}" type="button">Money</button>
-                    <div class="nav-dropdown">
-                        <a href="{{ url_for('transactions.index') }}">Transactions</a>
-                        <a href="{{ url_for('accounts.index') }}">Accounts</a>
-                        <a href="{{ url_for('accounts.check') }}">Check balances</a>
-                        <a href="{{ url_for('budgets.index') }}">Budgets</a>
-                        <a href="{{ url_for('accounts.pots') }}">Savings pots</a>
-                        <a href="{{ url_for('paypal_transfer.index') }}">PayPal Transfer</a>
-                    </div>
-                </div>
-                <div class="nav-menu">
-                    <button class="nav-link nav-trigger {% if request.endpoint and (request.endpoint.startswith('recurring.') or request.endpoint.startswith('pending.') or request.endpoint.startswith('loans.') or request.endpoint.startswith('forecast.')) %}active{% endif %}" type="button">Planning</button>
-                    <div class="nav-dropdown">
-                        <a href="{{ url_for('recurring.index') }}">Recurring</a>
-                        <a href="{{ url_for('pending.index') }}">Pending</a>
-                        <a href="{{ url_for('loans.index') }}">Loans</a>
-                        <a href="{{ url_for('forecast.index') }}">Forecast</a>
-                    </div>
-                </div>
-                <div class="nav-menu">
-                    <button class="nav-link nav-trigger {% if request.endpoint and (request.endpoint.startswith('merchants.') or request.endpoint.startswith('categories.') or request.endpoint.startswith('backup.')) %}active{% endif %}" type="button">Manage</button>
-                    <div class="nav-dropdown">
-                        <a href="{{ url_for('merchants.index') }}">Merchants</a>
-                        <a href="{{ url_for('categories.index') }}">Categories</a>
-                        <a href="{{ url_for('backup.index') }}">Backup</a>
-                    </div>
-                </div>
-                <a class="nav-link {% if request.endpoint and request.endpoint.startswith('analytics.') %}active{% endif %}" href="{{ url_for('analytics.index') }}">Analytics</a>
-            </nav>
-            <a class="nav-add" href="{{ url_for('transactions.new') }}">Add Transaction</a>
+    <aside class="app-sidebar" aria-label="Main navigation">
+        <a class="brand" href="{{ url_for('dashboard.index') }}"><span class="brand-mark"><img src="{{ url_for('static', filename='img/brand-logo.svg') }}" alt=""></span><span>Money Manager</span></a>
+        <nav class="side-nav" aria-label="Main">
+            <span class="nav-caption">Money</span>
+            <a class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}" href="{{ url_for('dashboard.index') }}">{{ icon("overview") }}<span>Overview</span></a>
+            <a class="nav-link {% if request.blueprint == 'inbox' %}active{% endif %}" href="{{ url_for('inbox.index') }}">{{ icon("inbox") }}<span>Money inbox</span></a>
+            <a class="nav-link {% if request.blueprint == 'transactions' and request.endpoint != 'transactions.new' %}active{% endif %}" href="{{ url_for('transactions.index') }}">{{ icon("transactions") }}<span>Transactions</span></a>
+            <a class="nav-link {% if request.blueprint == 'accounts' and request.endpoint != 'accounts.pots' %}active{% endif %}" href="{{ url_for('accounts.index') }}">{{ icon("accounts") }}<span>Accounts</span></a>
+            <span class="nav-caption">Plan</span>
+            <a class="nav-link {% if request.blueprint == 'budgets' %}active{% endif %}" href="{{ url_for('budgets.index') }}">{{ icon("budgets") }}<span>Budgets</span></a>
+            <a class="nav-link {% if request.blueprint == 'recurring' %}active{% endif %}" href="{{ url_for('recurring.index') }}">{{ icon("recurring") }}<span>Recurring</span></a>
+            <a class="nav-link {% if request.blueprint in ['calendar', 'pending'] %}active{% endif %}" href="{{ url_for('calendar.index') }}">{{ icon("calendar") }}<span>Scheduled</span></a>
+            <a class="nav-link {% if request.endpoint == 'accounts.pots' %}active{% endif %}" href="{{ url_for('accounts.pots') }}">{{ icon("target") }}<span>Goals</span></a>
+            <span class="nav-caption">Analyze</span>
+            <a class="nav-link {% if request.blueprint in ['analytics', 'forecast'] %}active{% endif %}" href="{{ url_for('analytics.index') }}">{{ icon("insights") }}<span>Insights</span></a>
+        </nav>
+        <div class="side-bottom">
+            <button class="nav-add" type="button" data-open-quick-add>{{ icon("plus") }}<span>Add transaction</span></button>
+            <div class="sidebar-controls">
+                <a class="sidebar-icon-button {% if request.blueprint in ['settings','finance'] %}active{% endif %}" href="{{ url_for('settings.index') }}" aria-label="Settings &amp; tools" title="Settings &amp; tools" {% if request.blueprint in ['settings','finance'] %}aria-current="page"{% endif %}>{{ icon('settings') }}</a>
+                <button type="button" class="sidebar-icon-button theme-toggle" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode">{{ icon('sun', 'theme-sun') }}{{ icon('moon', 'theme-moon') }}</button>
+            </div>
         </div>
-    </header>
+        <nav class="mobile-nav" aria-label="Mobile navigation"><a {% if request.blueprint == 'dashboard' %}aria-current="page"{% endif %} href="{{ url_for('dashboard.index') }}">Home</a><a {% if request.blueprint in ['transactions'] %}aria-current="page"{% endif %} href="{{ url_for('transactions.index') }}">Activity</a><button type="button" data-open-quick-add aria-label="Add transaction">+</button><a {% if request.blueprint in ['budgets', 'recurring', 'calendar', 'pending'] %}aria-current="page"{% endif %} href="{{ url_for('budgets.index') }}">Plan</a><a {% if request.blueprint in ['analytics', 'forecast'] %}aria-current="page"{% endif %} href="{{ url_for('analytics.index') }}">Insights</a></nav>
+    </aside>
+    <button type="button" class="mobile-theme-toggle" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode">{{ icon('sun', 'theme-sun') }}{{ icon('moon', 'theme-moon') }}</button>
+    <details class="mobile-tools"><summary>Money Manager · Menu</summary><div><a href="{{ url_for('inbox.index') }}">Money inbox</a><a href="{{ url_for('accounts.index') }}">Accounts</a><a href="{{ url_for('recurring.index') }}">Recurring</a><a href="{{ url_for('recurring.subscriptions') }}">Subscriptions</a><a href="{{ url_for('calendar.index') }}">Scheduled</a><a href="{{ url_for('accounts.pots') }}">Goals</a><a href="{{ url_for('loans.index') }}">Loans</a><a href="{{ url_for('pending.index') }}">Pending</a><a href="{{ url_for('forecast.index') }}">Forecast</a><a href="{{ url_for('accounts.check') }}">Check balances</a><a href="{{ url_for('merchants.index') }}">Merchants</a><a href="{{ url_for('categories.index') }}">Categories</a><a href="{{ url_for('settings.index') }}">Settings &amp; tools</a></div></details>
     <main class="page">
+        {% set sidebar_pages = ['dashboard.index', 'inbox.index', 'transactions.index', 'accounts.index', 'budgets.index', 'recurring.index', 'calendar.index', 'accounts.pots', 'analytics.index', 'settings.index'] %}
+        {% if request.endpoint not in sidebar_pages %}
+        {% set back_parents = {'transactions.import_rules': 'transactions.import_csv', 'transactions.import_batch': 'transactions.import_csv', 'forecast.index': 'analytics.index', 'pending.index': 'calendar.index', 'categories.index': 'settings.index', 'merchants.index': 'settings.index', 'backup.index': 'settings.index', 'paypal_transfer.index': 'settings.index', 'loans.index': 'settings.index'} %}
+        {% set back_endpoint = 'recurring.index' if request.endpoint=='finance.occurrences' else 'settings.index' if request.blueprint=='finance' else back_parents.get(request.endpoint, 'dashboard.index' if request.endpoint.endswith('.index') else request.blueprint ~ '.index') %}
+        <a class="page-back" href="{{ url_for(back_endpoint) }}" data-page-back aria-label="Go back">{{ icon('left') }}<span>Back</span></a>
+        {% endif %}
         {% for category, message in get_flashed_messages(with_categories=true) %}
         <div class="notice notice-{{ category }}" role="status">
             {% if category == 'undo_transaction' %}
             <span>Transaction deleted.</span>
-            <form method="post" action="{{ url_for('transactions.restore', trash_id=message|int) }}"><button class="quiet-button">Undo</button></form>
+            <form method="post" action="{{ url_for('transactions.restore', trash_id=message|int) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="quiet-button">Undo</button></form>
             {% else %}{{ message }}{% endif %}
         </div>
         {% endfor %}
         {% block content %}{% endblock %}
     </main>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <dialog class="quick-add-dialog" data-quick-add-dialog aria-label="Add transaction"><form method="post" action="{{ url_for('transactions.new') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="section-heading"><h2>Quick add</h2><button type="button" class="quiet-button" data-close-quick-add aria-label="Close">×</button></div>
+        <div class="quick-type"><label><input type="radio" name="type" value="expense" checked> Expense</label><label><input type="radio" name="type" value="income"> Income</label><label><input type="radio" name="type" value="transfer"> Transfer</label></div>
+        <label class="quick-amount">Amount<input type="number" name="amount" min="0.01" step="0.01" placeholder="€ 0.00" required></label>
+        <label>Account<select name="account_id" data-visual-select required>{% for account in quick_accounts %}<option value="{{ account.id }}" data-kind="logo" data-logo="{{ account.logo or '' }}">{{ account.name }}</option>{% endfor %}</select></label>
+        <label data-quick-destination hidden>Destination<select name="destination_account_id" data-visual-select disabled>{% for account in quick_accounts %}<option value="{{ account.id }}" data-kind="logo" data-logo="{{ account.logo or '' }}">{{ account.name }}</option>{% endfor %}</select></label>
+        <label data-quick-merchant>Merchant<select name="merchant_id" data-visual-select><option value="">None</option>{% for merchant in quick_merchants %}<option value="{{ merchant.id }}" data-kind="logo" data-logo="{{ merchant.logo or '' }}" data-default-category="{{ merchant.default_category or '' }}">{{ merchant.name }}</option>{% endfor %}</select></label>
+        <label data-quick-category>Category<select name="category" data-visual-select><option value="">None</option>{% for category in quick_categories %}<option value="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}" data-category-type="{{ category.type }}">{{ category.name }}</option>{% endfor %}</select></label>
+        <label>Note<input name="description" placeholder="What was it for?"></label>
+        <details class="quick-more"><summary>More details</summary><div><label>Date<span class="date-control"><span class="date-icon" aria-hidden="true"></span><input type="date" name="date" value="{{ today_iso() }}" required></span></label><p class="future-payment-note" data-future-note hidden>Future payment — this will stay scheduled until its date.</p><label>Currency<select name="currency"><option>EUR</option><option>USD</option><option>GBP</option><option>CHF</option></select></label><a class="quiet-button" href="{{ url_for('transactions.new') }}">Open full editor</a></div></details>
+        <div class="quick-actions"><button>Add transaction</button></div>
+    </form></dialog>
+    <dialog class="command-palette" data-command-palette aria-label="Quick actions"><div class="command-search"><span aria-hidden="true">⌕</span><input data-command-input placeholder="Search or jump to…" aria-label="Search quick actions"><kbd>Esc</kbd></div><nav class="command-results" aria-label="Quick actions"><a href="{{ url_for('transactions.new') }}" data-command-item>Add transaction</a><a href="{{ url_for('accounts.check') }}" data-command-item>Check balances</a><a href="{{ url_for('accounts.pots') }}#create-pot" data-command-item>Create savings pot</a><a href="{{ url_for('transactions.index') }}" data-command-item>Search transactions</a><a href="{{ url_for('recurring.subscriptions') }}" data-command-item>Subscriptions</a><a href="{{ url_for('forecast.index') }}" data-command-item>Forecast</a><a href="{{ url_for('analytics.index') }}" data-command-item>Insights</a><a href="{{ url_for('settings.index') }}" data-command-item>Settings</a></nav></dialog>
+    <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js', v=asset_version('js/app.js')) }}"></script>
+    <script src="{{ url_for('static', filename='js/navigation.js', v=asset_version('js/navigation.js')) }}"></script>
     <script src="{{ url_for('static', filename='js/date-range.js', v=asset_version('js/date-range.js')) }}"></script>
+    <script src="{{ url_for('static', filename='js/transactions-list.js', v=asset_version('js/transactions-list.js')) }}"></script>
+    <script src="{{ url_for('static', filename='js/quick-add.js', v=asset_version('js/quick-add.js')) }}"></script>
+    <script src="{{ url_for('static', filename='js/settings-accounts.js', v=asset_version('js/settings-accounts.js')) }}"></script>
+    <script src="{{ url_for('static', filename='js/theme.js', v=asset_version('js/theme.js')) }}"></script>
+    <script src="{{ url_for('static', filename='js/v4.js', v=asset_version('js/v4.js')) }}"></script>
     <script src="{{ url_for('static', filename='js/charts.js', v=asset_version('js/charts.js')) }}"></script>
 </body>
 </html>

@@ -1,20 +1,13 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="page-title"><div class="title-copy"><p class="eyebrow">Look ahead</p><h1>Forecast</h1></div></div>
-<form class="form" method="post">
-    <label>Monthly Income <input type="number" step="0.01" name="monthly_income" value="{{ form.monthly_income }}"></label>
-    <label>Monthly Expenses <input type="number" step="0.01" name="monthly_expenses" value="{{ form.monthly_expenses }}"></label>
-    <label>Monthly Investments <input type="number" step="0.01" name="monthly_investments" value="{{ form.monthly_investments }}"></label>
-    <label>Years <input type="number" min="1" name="years" value="{{ form.years }}"></label>
-    <label>Annual Return % <input type="number" step="0.1" name="annual_return" value="{{ form.annual_return }}"></label>
-    <button>Project</button>
-</form>
-{% if result %}
-<table>
-    <tr><th>Year</th><th>Cash</th><th>Investments</th><th>Total</th></tr>
-    {% for row in result %}
-    <tr><td>{{ row.year }}</td><td>&euro;{{ "%.2f"|format(row.cash) }}</td><td>&euro;{{ "%.2f"|format(row.investments) }}</td><td class="money">&euro;{{ "%.2f"|format(row.total) }}</td></tr>
-    {% endfor %}
-</table>
-{% endif %}
+{% extends 'base.html' %}{% block content %}
+{% include '_insight_tabs.html' %}
+<div class="page-title"><div><p class="eyebrow">What happens next</p><h1>Cash-flow forecast</h1></div></div>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<div class="forecast-periods">{% for days,label in [(30,'30 days'),(60,'60 days'),(90,'90 days'),(180,'6 months'),(365,'1 year')] %}<a class="{{ 'active' if forecast.days==days else '' }}" href="{{ url_for('forecast.index',days=days,scenario=forecast.scenario.id if forecast.scenario else none) }}">{{ label }}</a>{% endfor %}</div>
+<form method="get" class="inline-action-form"><input type="hidden" name="days" value="{{ forecast.days }}"><label>Scenario<select name="scenario"><option value="">Baseline</option>{% for s in scenarios %}<option value="{{ s.id }}" {% if forecast.scenario and forecast.scenario.id==s.id %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></label><button class="secondary-button">Compare scenario</button></form>
+<div class="forecast-summary"><div><span>Balance today</span><strong data-private-balance>{{ forecast.opening|money }}</strong></div><div><span>{{ forecast.end|display_date }} projected</span><strong data-private-balance>{{ forecast.projected|money }}</strong></div><div><span>Typical unscheduled spending</span><strong data-private-balance>{{ forecast.daily_spend|money }}/day</strong></div></div>
+<section class="dashboard-focus-panel"><div class="section-heading"><h2>Projected balance</h2><span class="muted-text">{{ forecast.scenario.name if forecast.scenario else 'Baseline' }}</span></div><div class="chart-frame" data-private-chart><canvas id="forecastBalanceChart" data-forecast='{{ forecast.curve|tojson }}'></canvas></div></section>
+<section class="dashboard-focus-panel"><h2>Scheduled balances by account</h2><p class="field-help">Account projections include known payments and card settlements. The total chart also includes typical spending and the selected scenario.</p><div class="table-scroll"><table><tr><th>Account</th><th>Today</th><th>After scheduled activity</th></tr>{% for a in forecast.accounts %}<tr><td>{{ a.name }}</td><td>{{ a.balance|money }}</td><td>{{ a.scheduled_balance|money }}</td></tr>{% endfor %}</table></div></section>
+<section class="forecast-events"><div class="section-heading"><h2>On the calendar</h2><span class="muted-text">Transfers move money between accounts; their total effect is zero.</span></div><div class="transaction-feed">{% for e in forecast.events %}<div class="forecast-event"><span>{{ e.date|display_date }}</span><strong>{{ e.name }}</strong><span>{% if e.type=='transfer' %}Transfer {{ e.transfer_amount|money }}{% else %}{{ '+' if e.amount>0 else '&minus;'|safe }}{{ (e.amount|abs)|money }}{% endif %}</span></div>{% else %}<p class="empty-state">No scheduled income or payments in this period.</p>{% endfor %}</div></section>
+<details class="dashboard-focus-panel"><summary>Save a scenario</summary><p class="field-help">Enter monthly changes in EUR: positive income adds money; positive spending or investment reduces it. Negative values model a reduction. Saving a scenario leaves your ledger unchanged.</p><form method="post" class="roadmap-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><div class="roadmap-fields"><label>Name<input name="name" maxlength="100" required placeholder="For example: Lower subscriptions"></label>{% for key,label in [('income','Income change'),('spending','Spending change'),('investment','Investment change')] %}<label>{{ label }} / month (&euro;)<input name="{{ key }}" type="number" step="0.01" value="0" required></label>{% endfor %}</div><button>Save scenario</button></form></details>
+<p class="field-help">Typical spending uses posted expenses from the previous 90 days, excluding recurring payments and marked subscriptions. Future purchases and changes to scheduled payments will move the balance.</p>
 {% endblock %}

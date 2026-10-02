@@ -2,17 +2,20 @@
 {% block content %}
 <div class="page-title">
     <div class="title-copy"><p class="eyebrow">Plan your month</p><h1>Budgets</h1></div>
+    <form method="post" action="{{ url_for('budgets.copy_previous') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="month" value="{{ month }}"><button class="secondary-button">Copy previous month</button></form>
 </div>
 
-<section class="grid metrics">
+{% if budgets %}<section class="grid metrics">
     <article class="card"><span>Month</span><strong>{{ summary.month }}</strong></article>
     <article class="card"><span>Budgeted</span><strong>&euro;{{ "%.2f"|format(summary.total_budget) }}</strong></article>
     <article class="card"><span>Spent</span><strong>&euro;{{ "%.2f"|format(summary.total_spent) }}</strong></article>
     <article class="card"><span>Remaining</span><strong>&euro;{{ "%.2f"|format(summary.remaining) }}</strong></article>
-</section>
+</section>{% else %}
+<section class="budget-onboarding dashboard-focus-panel"><span class="empty-symbol" aria-hidden="true">◎</span><div><h2>Create your first budget</h2><p>Choose a category and a monthly limit. We’ll show what you’ve spent and how much is left.</p>{% if suggestions %}<p class="field-help">Start with your average spending over the last three full months:</p><div class="budget-suggestions">{% for suggestion in suggestions %}<button type="button" class="secondary-button" data-budget-suggestion="{{ suggestion.id }}" data-budget-amount="{{ suggestion.amount }}">{{ suggestion.name }} · {{ suggestion.amount|money }}</button>{% endfor %}</div>{% endif %}</div></section>
+{% endif %}
 
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-<form class="form" method="post">
+<form class="form" method="post" id="budget-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Month
         <span class="month-control">
             <span class="date-icon" aria-hidden="true"></span>
@@ -29,15 +32,19 @@
             </select>
         </span>
     </label>
-    <label>Amount <input type="number" min="0" step="0.01" name="amount" required></label>
+    <label>Amount <input type="number" min="0" step="0.01" name="amount" value="{{ request.form.get('amount', '') }}" required></label>
+    <label class="budget-rollover"><input type="checkbox" name="rollover"> Roll over unused money</label>
     <button>Save Budget</button>
 </form>
 
-<table>
+{% if budgets or templates %}<details class="budget-tools"><summary>Templates &amp; shortcuts</summary><div class="budget-template-tools">{% if budgets %}<form method="post" action="{{ url_for('budgets.template_save') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="month" value="{{ month }}"><label>Save this month's plan as a template<input name="name" placeholder="Everyday budget" maxlength="80" required></label><button class="secondary-button">Save template</button></form>{% endif %}<form method="post" action="{{ url_for('budgets.template_apply') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="month" value="{{ month }}"><label>Apply a template<select name="template_id" required>{% for template in templates %}<option value="{{ template.id }}">{{ template.name }}</option>{% endfor %}</select></label><button class="secondary-button" {% if not templates %}disabled{% endif %}>Apply</button></form></div>
+
+</details>{% endif %}
+{% if budgets %}<div class="table-scroll"><table>
     <tr><th>Category</th><th>Budget</th><th>Spent</th><th>Remaining</th><th>Progress</th><th></th></tr>
     {% for budget in budgets %}
-    {% set remaining = budget.amount - budget.spent_amount %}
-    {% set percent = (budget.spent_amount / budget.amount * 100) if budget.amount else 0 %}
+    {% set remaining = budget.available_amount - budget.spent_amount %}
+    {% set percent = (budget.spent_amount / budget.available_amount * 100) if budget.available_amount else 0 %}
     <tr>
         <td>
             <span class="category-inline">
@@ -45,14 +52,15 @@
                 {{ budget.category_name }}
             </span>
         </td>
-        <td class="money">&euro;{{ "%.2f"|format(budget.amount) }}</td>
+        <td class="money">&euro;{{ "%.2f"|format(budget.available_amount) }}{% if budget.rollover_amount %}<small class="cell-note">Includes €{{ '%.2f'|format(budget.rollover_amount) }} rollover</small>{% endif %}</td>
         <td class="money">&euro;{{ "%.2f"|format(budget.spent_amount) }}</td>
         <td class="money">&euro;{{ "%.2f"|format(remaining) }}</td>
         <td>
             <div class="budget-bar"><span style="width: {{ [percent, 100]|min }}%"></span></div>
+            <small class="cell-note">{{ '%.0f'|format(budget.month_elapsed) }}% of month · €{{ '%.2f'|format(budget.projected) }} projected · €{{ '%.2f'|format(budget.remaining_per_day) }}/day left</small>
         </td>
         <td class="actions">
-            <form method="post" action="{{ url_for('budgets.delete', budget_id=budget.id) }}" data-confirm="Delete this budget?">
+            <form method="post" action="{{ url_for('budgets.delete', budget_id=budget.id) }}" data-confirm="Delete this budget?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="month" value="{{ month }}">
                 <button class="danger-link">Delete</button>
             </form>
@@ -61,5 +69,5 @@
     {% else %}
     <tr><td colspan="6" class="empty-state">No budgets for this month.</td></tr>
     {% endfor %}
-</table>
+</table></div>{% endif %}
 {% endblock %}

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
+{% include "_insight_tabs.html" %}
 <div class="page-title"><div class="title-copy"><p class="eyebrow">Understand your money</p><h1>Analytics</h1></div></div>
 
 <section class="chart-grid">
@@ -37,7 +38,7 @@
     <div class="dashboard-panel-list">
         <h2>Monthly Summary</h2>
         <div class="dashboard-list">
-            {% for row in monthly %}
+            {% for row in monthly[:6] %}
             <div class="dashboard-row monthly-row">
                 <span class="dashboard-date-chip"><strong>{{ row.month[5:7] }}</strong><small>{{ row.month[:4] }}</small></span>
                 <span class="monthly-metrics">
@@ -54,7 +55,7 @@
     <div class="dashboard-panel-list">
         <h2>Expenses by Category</h2>
         <div class="dashboard-list">
-            {% for row in categories %}
+            {% for row in categories[:5] %}
             <a class="dashboard-row category-row" href="{{ url_for('transactions.index', category=row.category) }}">
                 <span class="dashboard-row-logo dashboard-category-logo" style="--category-color: {{ row.color }}" data-icon="{{ row.icon }}"></span>
                 <span class="dashboard-row-main"><strong>{{ row.category }}</strong><small>Category spending</small></span>
@@ -64,10 +65,11 @@
             <div class="dashboard-empty">No categorized expenses yet.</div>
             {% endfor %}
         </div>
+        {% if categories|length > 5 %}<details class="analytics-more"><summary>View all categories</summary><div class="dashboard-list">{% for row in categories[5:] %}<a class="dashboard-row category-row" href="{{ url_for('transactions.index', category=row.category) }}"><span class="dashboard-row-main"><strong>{{ row.category }}</strong></span><span class="dashboard-row-amount">€{{ '%.2f'|format(row.total) }}</span></a>{% endfor %}</div></details>{% endif %}
     </div>
 </section>
 
-<section class="split dashboard-lists analytics-lists">
+<details class="analytics-detail"><summary>Detailed balance and weekday data</summary><section class="split dashboard-lists analytics-lists">
     <div class="dashboard-panel-list">
         <h2>Cumulative Balance</h2>
         <div class="dashboard-list">
@@ -96,7 +98,9 @@
             {% endfor %}
         </div>
     </div>
-</section>
+</section></details>
+
+<section class="dashboard-panel-list analytics-projects"><div class="section-heading"><h2>Projects &amp; tags</h2><span class="muted-text">A transaction can belong to more than one tag.</span></div><div class="dashboard-list">{% for project in projects %}<a class="dashboard-row" href="{{ url_for('transactions.index', tag=project.tag) }}"><span class="dashboard-row-logo dashboard-row-fallback">#</span><span class="dashboard-row-main"><strong>{{ project.tag }}</strong><small>Tagged expense total</small></span><span class="dashboard-row-amount">€{{ '%.2f'|format(project.total) }}</span></a>{% else %}<p class="dashboard-empty">Track a trip or project across categories. Open a transaction, choose Splits &amp; tags, and add a label such as Holiday.</p>{% endfor %}</div></section>
 
 <section class="dashboard-panel-list analytics-largest">
     <h2>Largest Expenses</h2>

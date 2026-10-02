@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><div><p class="eyebrow">Bring your activity in</p><h1>Import transactions</h1></div><a class="secondary-button" href="{{ url_for('transactions.import_rules') }}">Categorization rules</a></div>
+<p class="page-intro">Choose an account and a CSV file. Next you’ll map its columns, inspect duplicates, then select the rows to import.</p>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<form class="form import-upload" method="post" enctype="multipart/form-data"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Account<select name="account_id" required>{% for account in accounts %}<option value="{{ account.id }}">{{ account.name }}</option>{% endfor %}</select></label>
+    <label>Bank CSV<input type="file" name="file" accept=".csv,text/csv" required></label>
+    <button>Choose columns →</button>
+</form>
+<p class="field-help">CSV only, up to 5 MB and 5,000 rows. The file stays inside this app; no bank login is needed.</p>
+<p><a href="{{ url_for('finance.imports') }}">Import history &amp; saved bank profiles</a> · <a href="{{ url_for('finance.rules') }}">Advanced transaction rules</a></p>
+{% endblock %}

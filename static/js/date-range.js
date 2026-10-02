@@ -17,13 +17,8 @@ document.querySelectorAll("[data-date-range]").forEach((control) => {
         : new Date(today.getFullYear(), today.getMonth() - 1, 1);
     let choosingEnd = false;
 
-    const trigger = document.createElement("button");
-    trigger.type = "button";
-    trigger.className = "date-range-trigger";
-    trigger.setAttribute("aria-label", "Choose transaction date range");
-    trigger.setAttribute("aria-haspopup", "dialog");
-    trigger.setAttribute("aria-expanded", "false");
-    trigger.innerHTML = '<span class="date-range-icon" aria-hidden="true"></span><span class="date-range-value"></span><span class="choice-caret" aria-hidden="true"></span>';
+    const trigger = control.querySelector(".date-range-trigger");
+    if (!trigger) return;
 
     const panel = document.createElement("div");
     panel.className = "date-range-panel";
@@ -183,7 +178,7 @@ document.querySelectorAll("[data-date-range]").forEach((control) => {
     });
 
     control.classList.add("enhanced-range");
-    control.append(trigger, panel);
+    control.append(panel);
     updateTrigger();
     render();
 });

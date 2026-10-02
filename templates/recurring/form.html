@@ -1,8 +1,9 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-title"><div class="title-copy"><p class="eyebrow">On repeat</p><h1>{{ "Edit" if rule else "Add" }} Recurring Rule</h1></div></div>
+{% if rule and rule.id %}<p><a href="{{ url_for('finance.occurrences',rule_id=rule.id) }}">View occurrence history</a></p>{% endif %}
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-<form class="form" method="post">
+<form class="form" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Name <input name="name" value="{{ rule.name if rule else '' }}" required></label>
     <label>Type
         <span class="select-with-visual">
@@ -15,6 +16,7 @@
         </span>
     </label>
     <label>Amount <input type="number" step="0.01" min="0" name="amount" value="{{ rule.amount if rule else '' }}" placeholder="0.00" required></label>
+    <label>Currency<select name="currency">{% for currency in ['EUR','USD','GBP','CHF'] %}<option {% if rule and rule.currency==currency %}selected{% endif %}>{{ currency }}</option>{% endfor %}</select></label>
     <label>Account
         <span class="select-with-visual">
             <span class="select-leading" aria-hidden="true"></span>
@@ -76,6 +78,7 @@
         </span>
     </label>
     <label>Description <input name="description" value="{{ rule.description if rule else '' }}"></label>
+    <label class="check"><input type="checkbox" name="is_subscription" {% if rule and rule.is_subscription %}checked{% endif %}> Show in Subscriptions</label>
     {% if rule %}
     <label class="check"><input type="checkbox" name="is_active" {% if rule.is_active %}checked{% endif %}> Active</label>
     {% endif %}

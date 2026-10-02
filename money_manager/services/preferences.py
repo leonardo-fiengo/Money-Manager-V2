@@ -33,7 +33,7 @@ def payment_accounts():
     # do not train payment preferences; selection stays stable while filling a form.
     scores = {a["id"]: 0 for a in accounts}
     today = date.today()
-    for row in get_db().execute("SELECT account_id, date FROM transactions WHERE type = 'expense' AND status = 'posted'"):
+    for row in get_db().execute("SELECT account_id, date FROM ledger_transactions WHERE type = 'expense' AND status = 'posted'"):
         try:
             age = (today - date.fromisoformat(row["date"])).days
         except ValueError:

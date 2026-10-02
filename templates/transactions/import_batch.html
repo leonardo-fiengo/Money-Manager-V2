@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><div><p class="eyebrow">{{ batch.account_name }} · {{ batch.filename }}</p><h1>{{ 'Map columns' if batch.status == 'mapping' else 'Review import' if batch.status == 'review' else 'Import complete' }}</h1></div></div>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+{% if batch.status == 'mapping' %}
+<p class="page-intro">Tell us which columns hold each value and how your bank marks charges. For separate debit and credit columns, leave Amount blank.</p>
+<form class="form import-mapping" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% for key, label, needed in [('date','Date',true),('description','Description',true),('amount','Signed amount',false),('debit','Debit',false),('credit','Credit',false),('currency','Currency column',false)] %}
+    <label>{{ label }}<select name="{{ key }}" {% if needed %}required{% endif %}><option value="">{{ 'Choose column' if needed else 'None' }}</option>{% for header in headers %}<option value="{{ header }}" {% if mapping.get(key)==header %}selected{% endif %}>{{ header }}</option>{% endfor %}</select></label>
+    {% endfor %}
+    <label>Date format<select name="date_format"><option value="ymd">YYYY-MM-DD</option><option value="dmy" {% if mapping.get("date_format")=="dmy" %}selected{% endif %}>DD/MM/YYYY</option><option value="mdy" {% if mapping.get("date_format")=="mdy" %}selected{% endif %}>MM/DD/YYYY</option><option value="dmy_dot" {% if mapping.get("date_format")=="dmy_dot" %}selected{% endif %}>DD.MM.YYYY</option></select></label>
+    <label>Signed amount convention<select name="expense_sign"><option value="negative">Negative = expense</option><option value="positive">Positive = expense</option></select></label>
+    <label>Default currency<select name="default_currency">{% for currency in ['EUR','USD','GBP','CHF'] %}<option value="{{ currency }}">{{ currency }}</option>{% endfor %}</select></label>
+    <label>Save bank profile (optional)<input name="profile_name" maxlength="100" placeholder="For example: My bank EUR"></label>
+    <button>Preview transactions →</button>
+</form>
+<h2>Sample from your file</h2><div class="table-scroll"><table><tr>{% for header in headers %}<th>{{ header }}</th>{% endfor %}</tr>{% for sample_row in sample %}<tr>{% for header in headers %}<td>{{ sample_row[header] }}</td>{% endfor %}</tr>{% endfor %}</table></div>
+{% elif batch.status == 'review' %}
+<p class="page-intro">Only checked rows will be added. Potential duplicates are unchecked; you can explicitly include one if it is a separate purchase.</p>
+<form method="post" action="{{ url_for('transactions.import_confirm', batch_id=batch.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="table-scroll"><table class="import-review"><tr><th>Add</th><th>Date</th><th>Description</th><th>Amount</th><th>Suggested category</th><th>Review</th></tr>
+{% for row in rows %}<tr class="{{ 'import-error' if row.error else 'import-duplicate' if row.duplicate else '' }}"><td>{% if not row.error and not row.item.get("ignored") %}<input type="checkbox" name="selected" value="{{ row.index }}" {% if not row.duplicate %}checked{% endif %} aria-label="Import row {{ row.index + 1 }}">{% endif %}</td><td>{{ row.item.date if row.item else '—' }}</td><td>{{ row.item.description if row.item else 'Row ' ~ (row.index + 1) }}</td><td>{% if row.item %}{{ '+' if row.item.type == 'income' else '−' }}{{ row.item.currency }} {{ '%.2f'|format(row.item.amount) }}{% endif %}</td><td>{% if row.item %}<select name="category_{{ row.index }}" aria-label="Category for row {{ row.index + 1 }}"><option value="">Uncategorized</option>{% for category in categories %}<option value="{{ category.name }}" {% if row.item.category == category.name %}selected{% endif %}>{{ category.name }}</option>{% endfor %}</select><label class="import-override"><input type="checkbox" name="remember" value="{{ row.index }}">Remember this description</label>{% endif %}</td><td>{% if row.error %}{{ row.error }}{% elif row.item.get("ignored") %}Ignored by {{ row.item.matched_rule }}{% elif row.duplicate %}<label class="import-override"><input type="checkbox" name="override" value="{{ row.index }}">Import duplicate</label>{% else %}{{ row.item.get("matched_rule") or "Ready" }}{% if row.item.get("tags") %}<small>{{ row.item.tags }}</small>{% endif %}{% endif %}</td></tr>{% endfor %}
+</table></div><div class="import-actions"><span>{{ rows|length }} rows · {{ rows|selectattr('duplicate')|list|length }} possible duplicates · {{ rows|selectattr('error')|list|length }} invalid</span><button>Import selected</button></div></form>
+{% else %}<p class="notice">{{ "This batch was rolled back." if batch.status=="rolled_back" else "This batch has already been imported." }}</p><a class="button" href="{{ url_for('transactions.index') }}">View transactions</a>{% endif %}
+<p><a href="{{ url_for('finance.imports') }}">Import history &amp; bank profiles</a></p>
+{% endblock %}

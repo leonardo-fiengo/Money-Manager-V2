@@ -2,21 +2,16 @@
 {% block content %}
 <div class="page-title"><div><p class="eyebrow">Your everyday money</p><h1>{{ "Edit" if editing else "Add" }} transaction</h1></div></div>
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-<form class="form transaction-form" method="post" data-transaction-form data-editing="{{ 'true' if editing else 'false' }}">
+<form class="form transaction-form" method="post" data-transaction-form data-editing="{{ 'true' if editing else 'false' }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <fieldset class="transaction-kind"><legend>Transaction</legend>
+        {% for type, symbol in [('expense', '−'), ('income', '+'), ('transfer', '↔'), ('investment', '↗')] %}
+        <label class="transaction-kind-option"><input type="radio" name="type" value="{{ type }}" {% if (tx and tx.type == type) or (not tx and type == 'expense') %}checked{% endif %}><span aria-hidden="true">{{ symbol }}</span>{{ type|title }}</label>
+        {% endfor %}
+    </fieldset>
     <label class="field-date">Date
         <span class="date-control">
             <span class="date-icon" aria-hidden="true"></span>
             <input type="date" name="date" value="{{ tx.date if tx else today }}" required>
-        </span>
-    </label>
-    <label class="field-type">Type
-        <span class="select-with-visual">
-            <span class="select-leading" aria-hidden="true"></span>
-            <select name="type" data-visual-select required>
-            {% for type in ["expense", "income", "investment", "transfer"] %}
-            <option value="{{ type }}" data-label="{{ type|title }}" data-kind="type" data-symbol="{% if type == 'income' %}&uarr;{% elif type == 'expense' %}&darr;{% elif type == 'transfer' %}&harr;{% else %}&nearr;{% endif %}" data-tone="{{ type }}" {% if tx and tx.type == type %}selected{% endif %}>{{ type }}</option>
-            {% endfor %}
-            </select>
         </span>
     </label>
     <label class="field-amount">Amount
@@ -70,20 +65,14 @@
             <select name="category" data-visual-select data-create-kind="category">
             <option value="" data-label="None" data-kind="none">None</option>
             {% for category in categories %}
-            <option value="{{ category.name }}" data-label="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}" {% if tx and tx.category == category.name %}selected{% endif %}>{{ category.name }}</option>
+            <option value="{{ category.name }}" data-label="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}" data-category-type="{{ category.type }}" {% if tx and tx.category == category.name %}selected{% endif %}>{{ category.name }}</option>
             {% endfor %}
             </select>
         </span>
     </label>
     <label class="field-description">Description <input name="description" value="{{ (tx.description or '') if tx else '' }}" placeholder="What was it for?"></label>
-    <label>Status
-        <select name="status">
-            {% for status in ["posted", "pending"] %}
-            <option value="{{ status }}" {% if tx and tx.status == status %}selected{% endif %}>{{ 'Completed' if status == 'posted' else 'Pending' }}</option>
-            {% endfor %}
-        </select>
-    </label>
-    <div class="form-footer"><a class="quiet-button" href="{{ url_for('transactions.index') }}">Cancel</a><span></span>
+    <p class="future-payment-note" data-future-note hidden>Future payment — this will stay scheduled until its date.</p>
+    <div class="form-footer"><a class="quiet-button" href="{{ url_for('transactions.index') }}">Cancel</a>{% if editing %}<a class="secondary-button" href="{{ url_for('transactions.details', transaction_id=tx.id) }}">Splits, tags &amp; refunds</a>{% endif %}<span></span>
         {% if not editing %}<button class="secondary-button" name="after_save" value="another">Save and add another</button>{% endif %}
         <button>Save transaction</button>
     </div>

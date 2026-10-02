@@ -1,5 +1,6 @@
 def clean_amount(value):
-    return round(float(value or 0), 2)
+    from money_manager.utils.money import money_value
+    return money_value(value or 0)
 
 
 def empty_to_none(value):

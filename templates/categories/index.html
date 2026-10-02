@@ -4,7 +4,7 @@
     <div class="title-copy"><p class="eyebrow">Make sense of spending</p><h1>Categories</h1></div>
     <a class="button" href="{{ url_for('categories.new') }}">Add Category</a>
 </div>
-<table>
+<div class="table-scroll"><table>
     <tr><th></th><th>Name</th><th>Type</th><th></th></tr>
     {% for category in categories %}
     <tr>
@@ -18,5 +18,5 @@
     {% else %}
     <tr><td colspan="4" class="empty-state">No categories yet.</td></tr>
     {% endfor %}
-</table>
+</table></div>
 {% endblock %}

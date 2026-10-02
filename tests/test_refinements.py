@@ -44,6 +44,25 @@ class RefinementTest(unittest.TestCase):
     def balance(self, account):
         return next(a["balance"] for a in account_balances() if a["id"] == account)
 
+    def test_transaction_entry_uses_range_and_schedules_future_date(self):
+        page = self.client.get("/transactions/new").get_data(as_text=True)
+        self.assertIn('class="transaction-kind"', page)
+        self.assertIn('name="category"', page)
+        self.assertIn('data-category-type="expense"', page)
+        self.assertIn('data-kind="logo"', page)
+        self.assertNotIn('name="status"', page)
+        listing = self.client.get("/transactions/").get_data(as_text=True)
+        self.assertEqual(listing.count('class="date-range-trigger"'), 1)
+        self.assertNotIn('type="date" name="start"', listing)
+        future = (date.today() + timedelta(days=3)).isoformat()
+        response = self.client.post("/transactions/new", data=dict(date=future, type="expense", amount="12", account_id=self.cash, category="Groceries"))
+        self.assertEqual(response.status_code, 302)
+        tx = get_db().execute("SELECT status, category FROM transactions ORDER BY id DESC LIMIT 1").fetchone()
+        self.assertEqual((tx["status"], tx["category"]), ("pending", "Groceries"))
+        listing = self.client.get("/transactions/").get_data(as_text=True)
+        self.assertIn("Future payment", listing)
+        self.assertIn('data-category-glyph="basket"', listing)
+
     def test_automatic_uses_recency_and_only_completed_purchases(self):
         old = (date.today() - timedelta(days=180)).isoformat()
         for _ in range(4):
@@ -139,14 +158,14 @@ class RefinementTest(unittest.TestCase):
         for route in pages:
             response = self.client.get(route)
             self.assertEqual(response.status_code, 200, route)
-            self.assertIn('css/refinements.css?v=', response.text, route)
+            self.assertIn('css/money-manager.css?v=', response.text, route)
         response = self.client.post("/transactions/options/category", data=dict(name="Coffee test", type="expense"))
         self.assertEqual(response.status_code, 201)
         self.assertEqual(self.client.post("/transactions/options/category", data=dict(name="Coffee test", type="expense")).status_code, 400)
         response = self.client.post("/transactions/options/merchant", data=dict(name="Cafe test", default_category="Coffee test"))
         self.assertEqual(response.json["default_category"], "Coffee test")
         page = self.client.get("/transactions/").text
-        self.assertEqual(page.count('href="/transactions/new"'), 1)
+        self.assertEqual(page.count('href="/transactions/new"'), 2)  # Full editor and hidden command palette.
         response = self.client.post("/transactions/new", data=dict(account_id=self.cash, type="expense", amount="4.5", date=date.today().isoformat(), after_save="another"))
         self.assertTrue(response.location.endswith("/transactions/new"))
 
@@ -160,6 +179,13 @@ class RefinementTest(unittest.TestCase):
         self.assertEqual(self.balance(self.cash), 25)
         response = self.client.post("/accounts/check", data=dict(action="save", token=token + "invalid"))
         self.assertEqual(response.status_code, 400)
+
+    def test_matching_balance_check_shows_confirmation(self):
+        preview = self.client.post("/accounts/check", data={f"actual_{self.cash}": "0"})
+        token = re.search(r'name="token" value="([^"]+)"', preview.text).group(1)
+        saved = self.client.post("/accounts/check", data=dict(action="save", token=token), follow_redirects=True)
+        self.assertEqual(saved.status_code, 200)
+        self.assertIn("Everything matches", saved.text)
 
     def test_dashboard_period_filters_html_api_and_drilldowns(self):
         self.tx(type="income", amount=100)

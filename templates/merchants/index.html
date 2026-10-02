@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-title"><div class="title-copy"><p class="eyebrow">Your places</p><h1>Merchants</h1></div><a class="button" href="{{ url_for('merchants.new') }}">Add Merchant</a></div>
-<table>
+<div class="table-scroll"><table>
     <tr><th>Logo</th><th>Name</th><th>Website</th><th>Default Category</th><th></th></tr>
     {% for merchant in merchants %}
     <tr>
@@ -18,5 +18,5 @@
     {% else %}
     <tr><td colspan="5" class="empty-state">No merchants yet.</td></tr>
     {% endfor %}
-</table>
+</table></div>
 {% endblock %}

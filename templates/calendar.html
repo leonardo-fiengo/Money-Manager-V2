@@ -1,0 +1,17 @@
+﻿{% extends "base.html" %}
+{% block content %}
+{% from "_icons.html" import icon %}
+<div class="page-title"><div><p class="eyebrow">Your financial rhythm</p><h1>Calendar</h1></div><div class="calendar-nav"><a class="calendar-today" href="{{ url_for('calendar.index') }}">Today</a><a href="{{ url_for('calendar.index', month=previous) }}" aria-label="Previous month">{{ icon('left') }}</a><strong>{{ month }}</strong><a href="{{ url_for('calendar.index', month=next_month) }}" aria-label="Next month">{{ icon('right') }}</a></div></div>
+<div class="calendar-toolbar">{% include "_schedule_tabs.html" %}<span>Choose a day or payment for details</span></div>
+<div class="financial-calendar"><div class="calendar-weekdays">{% for day in ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'] %}<span>{{ day }}</span>{% endfor %}</div>
+{% for week in weeks %}<div class="calendar-week">{% for day in week %}
+<div class="calendar-day {{ '' if day.in_month else 'outside-month' }} {{ 'is-today' if day.date == today else '' }}" data-calendar-day="{{ day.date }}">
+<button class="calendar-day-trigger" type="button" data-open-day="{{ day.date }}" aria-label="View payments for {{ day.date }}" {{ 'aria-current=date' if day.date == today else '' }}><span>{{ day.date[8:10]|int }}</span>{% if day.date == today %}<small>Today</small>{% endif %}</button>
+{% for event in day.events[:3] %}<button type="button" class="calendar-event {{ 'positive' if event.amount > 0 else 'neutral' if event.type|default('') == 'transfer' else 'negative' }}" data-open-payment="{{ loop.index0 }}" data-date="{{ day.date }}" aria-label="{{ event.name }}: EUR {{ '%.2f'|format(event.price|default(event.amount|abs)) }}"><span>{{ event.name }}</span><strong>{{ '+' if event.amount > 0 else '' }}&euro;{{ '%.2f'|format(event.price|default(event.amount|abs)) }}</strong></button>{% endfor %}
+{% if day.events|length > 3 %}<button class="calendar-more" type="button" data-open-day="{{ day.date }}">+{{ day.events|length - 3 }} more</button>{% endif %}
+</div>{% endfor %}</div>{% endfor %}</div>
+<div class="calendar-legend"><span class="positive">Income</span><span class="negative">Expenses</span><span>Posted &middot; Pending &middot; Recurring</span></div>
+<dialog class="calendar-panel" data-calendar-panel aria-labelledby="calendar-panel-title"><header><div><p class="eyebrow" data-panel-subtitle>Day overview</p><h2 id="calendar-panel-title"></h2></div><button type="button" class="quiet-button" data-calendar-close aria-label="Close side panel">&times;</button></header><div class="calendar-panel-body" data-calendar-content></div></dialog>
+<script type="application/json" id="calendar-event-data">{{ calendar_events|tojson }}</script>
+<script src="{{ url_for('static', filename='js/calendar.js', v=asset_version('js/calendar.js')) }}" defer></script>
+{% endblock %}

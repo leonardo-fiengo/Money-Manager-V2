@@ -14,7 +14,7 @@
     <button>Filter</button>
 </form>
 
-<table>
+<div class="table-scroll"><table>
     <tr><th>Type</th><th>Person</th><th>Start</th><th>Due</th><th>Expected</th><th>Paid</th><th>Outstanding</th><th>Status</th><th></th></tr>
     {% for loan in loans %}
     <tr>
@@ -33,11 +33,11 @@
         <td class="actions">
             <a class="action-link" href="{{ url_for('loans.detail', loan_id=loan.id) }}">Open</a>
             <a class="action-link" href="{{ url_for('loans.edit', loan_id=loan.id) }}">Edit</a>
-            <form method="post" action="{{ url_for('loans.delete', loan_id=loan.id) }}" data-confirm="Delete this loan and its payments?"><button class="danger-link">Delete</button></form>
+            <form method="post" action="{{ url_for('loans.delete', loan_id=loan.id) }}" data-confirm="Delete this loan and its payments?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger-link">Delete</button></form>
         </td>
     </tr>
     {% else %}
     <tr><td colspan="9" class="empty-state">No loans yet.</td></tr>
     {% endfor %}
-</table>
+</table></div>
 {% endblock %}

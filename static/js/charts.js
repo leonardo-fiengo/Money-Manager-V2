@@ -1,5 +1,6 @@
 (function () {
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const dark = document.documentElement.dataset.theme === "dark";
 
     const money = new Intl.NumberFormat("en-US", {
         style: "currency",
@@ -8,16 +9,16 @@
     });
 
     const palette = {
-        income: "#147d64",
-        expenses: "#d45f3a",
-        investments: "#376fd0",
-        balance: "#111827",
+        income: dark ? "#95b6ff" : "#3568df",
+        expenses: dark ? "#eca497" : "#cb8b7d",
+        investments: dark ? "#c0b5e4" : "#a89bc8",
+        balance: dark ? "#e9eef7" : "#1d2635",
         amber: "#d9941f",
         tealSoft: "rgba(20, 125, 100, 0.12)",
         blueSoft: "rgba(55, 111, 208, 0.12)",
         redSoft: "rgba(212, 95, 58, 0.12)",
-        grid: "rgba(24, 32, 42, 0.08)",
-        muted: "#657080",
+        grid: dark ? "rgba(230, 245, 235, 0.1)" : "rgba(24, 32, 42, 0.08)",
+        muted: dark ? "#a2b0c5" : "#687588",
     };
 
     const categoryColors = [
@@ -101,7 +102,7 @@
     function renderMonthlyChart(id, rows) {
         const canvas = document.getElementById(id);
         if (!canvas) return;
-        const labels = rows.map((row) => row.month);
+        const labels = rows.map((row) => new Intl.DateTimeFormat("en-GB", {month:"short", year:"2-digit"}).format(new Date(row.month + "-01T12:00:00")));
         const income = rows.map((row) => row.income || 0);
         const expenses = rows.map((row) => row.expenses || 0);
         const investments = rows.map((row) => row.investments || 0);
@@ -114,9 +115,9 @@
             data: {
                 labels,
                 datasets: [
-                    { label: "Income", data: income, borderColor: palette.income, backgroundColor: palette.income, tension: 0.42, borderWidth: 3, pointRadius: 3, pointHoverRadius: 6, pointBorderWidth: 0 },
-                    { label: "Expenses", data: expenses, borderColor: palette.expenses, backgroundColor: palette.expenses, tension: 0.42, borderWidth: 3, pointRadius: 3, pointHoverRadius: 6, pointBorderWidth: 0 },
-                    { label: "Investments", data: investments, borderColor: palette.investments, backgroundColor: palette.investments, tension: 0.42, borderWidth: 3, pointRadius: 3, pointHoverRadius: 6, pointBorderWidth: 0 },
+                    { label: "Income", data: income, borderColor: palette.income, backgroundColor: palette.income, tension: 0.22, borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, pointBorderWidth: 0 },
+                    { label: "Expenses", data: expenses, borderColor: palette.expenses, backgroundColor: palette.expenses, tension: 0.22, borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, pointBorderWidth: 0 },
+                    { label: "Investments", data: investments, borderColor: palette.investments, backgroundColor: palette.investments, tension: 0.22, borderWidth: 2, pointRadius: 2, pointHoverRadius: 5, pointBorderWidth: 0 },
                 ],
             },
             options: baseOptions({
@@ -127,18 +128,18 @@
                         position: "bottom",
                         labels: {
                             usePointStyle: true,
-                            pointStyle: "rectRounded",
-                            boxWidth: 10,
-                            boxHeight: 10,
-                            color: palette.balance,
-                            padding: 22,
-                            font: { weight: "700" },
+                            pointStyle: "circle",
+                            boxWidth: 6,
+                            boxHeight: 6,
+                            color: palette.muted,
+                            padding: 20,
+                            font: { weight: "400", size: 11 },
                         },
                     },
                 },
                 scales: {
-                    x: { grid: { display: false }, ticks: { color: palette.balance, font: { weight: "700" } }, border: { display: false } },
-                    y: { ...baseOptions().scales.y, grid: { color: "rgba(24, 32, 42, 0.07)" } },
+                    x: { grid: { display: false }, ticks: { color: palette.muted, font: { weight: "400", size: 10 } }, border: { display: false } },
+                    y: { ...baseOptions().scales.y, grid: { color: palette.grid }, ticks: { ...baseOptions().scales.y.ticks, maxTicksLimit: 5, font: {size: 10} } },
                 },
             }),
         });
@@ -206,7 +207,7 @@
                     fill: true,
                     tension: 0.35,
                     borderWidth: 3,
-                    pointRadius: 0,
+                    pointRadius: rows.length === 1 ? 4 : 0,
                     pointHoverRadius: 5,
                     pointHitRadius: 16,
                 }],
@@ -248,6 +249,11 @@
 
     async function initDashboard() {
         if (!hasCanvas("dashboardMonthlyChart") && !hasCanvas("dashboardCategoryChart")) return;
+        const trend = document.getElementById("dashboardMonthlyChart");
+        if (trend?.dataset.flowTrend) {
+            renderMonthlyChart("dashboardMonthlyChart", JSON.parse(trend.dataset.flowTrend));
+            return;
+        }
         const period = new URLSearchParams(window.location.search).get('period') || 'month';
         const data = await loadJson(`/api/dashboard?period=${encodeURIComponent(period)}`);
         renderMonthlyChart("dashboardMonthlyChart", data.monthly || []);
@@ -263,11 +269,42 @@
         renderCategoryChart("analyticsCategoryChart", data.categories || []);
     }
 
+    function initForecast() {
+        const canvas = document.getElementById("forecastBalanceChart");
+        if (!canvas) return;
+        const points = JSON.parse(canvas.dataset.forecast || "[]");
+        const step = Math.max(1, Math.ceil(points.length / 48));
+        const shown = points.filter((_, index) => index % step === 0 || index === points.length - 1);
+        new Chart(canvas, { type: "line", data: { labels: shown.map(point => point.date), datasets: [{ label: "Projected balance", data: shown.map(point => point.balance), borderColor: palette.income, backgroundColor: palette.tealSoft, fill: true, tension: 0.3, pointRadius: 0 }] }, options: baseOptions({ plugins: { ...baseOptions().plugins, legend: { display: false } } }) });
+    }
+
     if (window.Chart) {
-        Chart.defaults.font.family = "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        Chart.defaults.font.family = "'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui, sans-serif";
         Chart.defaults.color = palette.muted;
         initDashboard().catch(console.error);
         initAnalytics().catch(console.error);
+        initForecast();
+        const history = document.getElementById("netWorthChart");
+        if (history) renderBalanceChart("netWorthChart", JSON.parse(history.dataset.history || "[]"));
+        const accountHistory = document.getElementById('accountBalanceChart');
+        if (accountHistory) {
+            const rows = JSON.parse(accountHistory.dataset.history || '[]');
+            new Chart(accountHistory, {
+                type: 'line',
+                data: {labels: rows.map(row => new Intl.DateTimeFormat('en-GB', {month:'short',day:'numeric'}).format(new Date(row.date+'T12:00:00'))),
+                    datasets: [{label:'Balance',data:rows.map(row=>row.balance),borderColor:palette.income,backgroundColor:palette.blueSoft,fill:true,tension:0.15,borderWidth:2,pointRadius:0,pointHoverRadius:5}]},
+                options: baseOptions({plugins:{...baseOptions().plugins,legend:{display:false}}}),
+            });
+        }
+        const accountSpending = document.getElementById('accountSpendingChart');
+        if (accountSpending) {
+            const rows = JSON.parse(accountSpending.dataset.categories || '[]');
+            new Chart(accountSpending, {
+                type: 'doughnut',
+                data: {labels:rows.map(row=>row.category),datasets:[{data:rows.map(row=>row.total),backgroundColor:rows.map(row=>row.color),borderWidth:0,hoverOffset:4}]},
+                options: {responsive:true,maintainAspectRatio:false,cutout:'72%',animation:reduceMotion?false:{duration:600},plugins:{legend:{display:false},tooltip:{callbacks:{label:context=>`${context.label}: ${new Intl.NumberFormat('en-GB',{style:'currency',currency:'EUR'}).format(context.parsed)}`}}}},
+            });
+        }
     }
 })();
 

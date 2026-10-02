@@ -44,7 +44,7 @@
         <span><strong data-paypal-flow-net>&euro;0.00</strong><small>Received</small></span>
     </div>
 
-    <form class="paypal-add-transfer" method="post" data-paypal-transfer-form>
+    <form class="paypal-add-transfer" method="post" data-paypal-transfer-form><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <input type="hidden" name="transfer_amount" value="0.00" data-paypal-transfer-amount>
         <span>
             <strong>Add transfer</strong>

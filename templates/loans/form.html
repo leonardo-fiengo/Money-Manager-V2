@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-title"><div class="title-copy"><p class="eyebrow">Between people</p><h1>{{ "Edit" if loan else "Add" }} loan</h1></div></div>
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-<form class="form" method="post">
+<form class="form" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Type
         <select name="direction" required>
             <option value="lent_out" {% if loan and loan.direction == "lent_out" %}selected{% endif %}>I lent money</option>

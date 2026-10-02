@@ -1,4 +1,5 @@
 from money_manager.db.connection import get_db
+from money_manager.db.atomic import atomic
 from money_manager.services.transactions import create_settlement_for_transaction, get_transaction
 from money_manager.utils.dates import today_iso
 
@@ -23,32 +24,22 @@ def list_pending():
 
 def execute_due_pending(current_date=None):
     db = get_db()
-    due = db.execute(
-        "SELECT id FROM transactions WHERE status = 'pending' AND date <= ?",
-        (current_date or today_iso(),),
-    ).fetchall()
-    db.execute(
-        """
-        UPDATE transactions
-        SET status = 'posted', updated_at = CURRENT_TIMESTAMP
-        WHERE status = 'pending' AND date <= ?
-        """,
-        (current_date or today_iso(),),
-    )
-    db.commit()
-    for row in due:
-        tx = get_transaction(row["id"])
-        if tx and tx["type"] == "expense":
-            create_settlement_for_transaction(tx["id"])
+    with atomic(db):
+        due = db.execute("SELECT id FROM transactions WHERE status = 'pending' AND date <= ?",
+                         (current_date or today_iso(),)).fetchall()
+        for row in due:
+            _mark_posted(db, row["id"])
+
+
+def _mark_posted(db, transaction_id):
+    tx = get_transaction(transaction_id)
+    if not tx:
+        raise ValueError("Payment not found.")
+    db.execute("UPDATE transactions SET status = 'posted', updated_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'", (transaction_id,))
+    if tx["type"] == "expense":
+        create_settlement_for_transaction(transaction_id)
 
 
 def mark_posted(transaction_id):
-    db = get_db()
-    tx = get_transaction(transaction_id)
-    db.execute(
-        "UPDATE transactions SET status = 'posted', updated_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (transaction_id,),
-    )
-    db.commit()
-    if tx and tx["type"] == "expense":
-        create_settlement_for_transaction(transaction_id)
+    with atomic(get_db()):
+        _mark_posted(get_db(), transaction_id)

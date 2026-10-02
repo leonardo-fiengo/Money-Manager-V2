@@ -1,0 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><div><p class="eyebrow">Only what needs your attention</p><h1>Money inbox</h1></div></div>
+<div class="inbox-list">{% for item in items %}<a class="inbox-item inbox-{{ item.kind }}" href="{{ url_for(item.href, **(item.params or {})) }}"><span class="inbox-symbol">{% if item.kind == 'attention' %}!{% elif item.kind == 'review' %}?{% else %}◷{% endif %}</span><span><strong>{{ item.title }}</strong><small>{{ item.detail }}</small></span><span aria-hidden="true">→</span></a>{% else %}<div class="inbox-empty"><strong>All caught up</strong><p>Nothing needs your attention right now.</p></div>{% endfor %}</div>
+{% endblock %}

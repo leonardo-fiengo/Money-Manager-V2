@@ -1,0 +1,1 @@
+<nav class="page-tabs" aria-label="Recurring views"><a href="{{ url_for('recurring.index') }}" {% if request.endpoint == 'recurring.index' %}aria-current="page"{% endif %}>All recurring</a><a href="{{ url_for('recurring.subscriptions') }}" {% if request.endpoint == 'recurring.subscriptions' %}aria-current="page"{% endif %}>Subscriptions</a></nav>

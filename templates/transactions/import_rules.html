@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-title"><div><p class="eyebrow">Teach the import</p><h1>Categorization rules</h1></div></div>
+<p class="page-intro">When a CSV description contains your matching text, the suggested merchant and category appear during review. The newest matching rule wins.</p>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<form class="form" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Description contains<input name="needle" placeholder="AMAZON" maxlength="100" required></label><label>Merchant<select name="merchant_id"><option value="">No merchant</option>{% for merchant in merchants %}<option value="{{ merchant.id }}">{{ merchant.name }}</option>{% endfor %}</select></label><label>Category<select name="category"><option value="">Use merchant default</option>{% for category in categories %}<option value="{{ category.name }}">{{ category.name }}</option>{% endfor %}</select></label><button>Add rule</button></form>
+<div class="table-scroll"><table><tr><th>Contains</th><th>Merchant</th><th>Category</th><th></th></tr>{% for rule in rules %}<tr><td>{{ rule.needle }}</td><td>{{ rule.merchant_name or '—' }}</td><td>{{ rule.category or 'Merchant default' }}</td><td><form method="post" action="{{ url_for('transactions.import_rule_delete', rule_id=rule.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger-link">Delete</button></form></td></tr>{% else %}<tr><td colspan="4" class="empty-state">No rules yet. Imports can still match existing merchant names.</td></tr>{% endfor %}</table></div>
+{% endblock %}

@@ -2,7 +2,9 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from money_manager.db.connection import get_db
+from money_manager.utils.money import money_sum, to_minor
 from money_manager.services.accounts import account_balances
+from money_manager.services.transaction_details import expense_allocations
 
 
 def dashboard_period(period="month"):
@@ -22,7 +24,7 @@ def dashboard_period(period="month"):
 
 
 def _posted_transactions(start=None, end=None):
-    sql, params = "SELECT * FROM transactions WHERE status = 'posted'", []
+    sql, params = "SELECT * FROM ledger_transactions WHERE status = 'posted'", []
     if start:
         sql += " AND date >= ?"
         params.append(start)
@@ -43,9 +45,14 @@ def _amount_eur(row):
 
 def dashboard_metrics(start=None, end=None):
     totals = {"income": 0, "expense": 0, "investment": 0}
+    linked_income = {row["related_transaction_id"] for row in get_db().execute("SELECT related_transaction_id FROM transaction_links")}
     for tx in _posted_transactions(start, end):
+        if tx["type"] == "expense" or (tx["type"] == "income" and tx["id"] in linked_income):
+            continue
         if tx["type"] in totals:
-            totals[tx["type"]] += _amount_eur(tx)
+            totals[tx["type"]] += tx["amount_eur_minor"]
+    totals["expense"] = sum(to_minor(row["amount"]) for row in expense_allocations(start, end))
+    totals = {key: value / 100 for key, value in totals.items()}
 
     net_balance = sum(account["balance"] for account in account_balances())
     savings_rate = 0
@@ -62,15 +69,16 @@ def dashboard_metrics(start=None, end=None):
 
 def monthly_summary(start=None, end=None):
     rows = defaultdict(lambda: {"income": 0, "expenses": 0, "investments": 0})
+    linked_income = {row["related_transaction_id"] for row in get_db().execute("SELECT related_transaction_id FROM transaction_links")}
     for tx in _posted_transactions(start, end):
         month = tx["date"][:7]
         amount = _amount_eur(tx)
-        if tx["type"] == "income":
+        if tx["type"] == "income" and tx["id"] not in linked_income:
             rows[month]["income"] += amount
-        elif tx["type"] == "expense":
-            rows[month]["expenses"] += amount
         elif tx["type"] == "investment":
             rows[month]["investments"] += amount
+    for allocation in expense_allocations(start, end):
+        rows[allocation["date"][:7]]["expenses"] += allocation["amount"]
     return [
         {
             "month": month,
@@ -84,9 +92,8 @@ def monthly_summary(start=None, end=None):
 
 def expenses_by_category(start=None, end=None):
     rows = defaultdict(float)
-    for tx in _posted_transactions(start, end):
-        if tx["type"] == "expense":
-            rows[tx["category"] or "Uncategorized"] += _amount_eur(tx)
+    for allocation in expense_allocations(start, end):
+        rows[allocation["category"]] += allocation["amount"]
 
     categories = {
         row["name"]: row
@@ -104,6 +111,17 @@ def expenses_by_category(start=None, end=None):
             }
         )
     return output
+
+
+def spending_by_tag():
+    amounts = defaultdict(float)
+    for row in expense_allocations():
+        amounts[row["transaction_id"]] += row["amount"]
+    totals = defaultdict(float)
+    for tag in get_db().execute("SELECT transaction_id, tag FROM transaction_tags"):
+        if tag["transaction_id"] in amounts:
+            totals[tag["tag"]] += amounts[tag["transaction_id"]]
+    return [dict(tag=tag, total=round(total, 2)) for tag, total in sorted(totals.items(), key=lambda item: item[1], reverse=True)]
 
 
 def cumulative_balance():
@@ -134,17 +152,10 @@ def weekday_spending():
         "5": "Friday",
         "6": "Saturday",
     }
-    rows = get_db().execute(
-        """
-        SELECT date, amount, currency, amount_eur
-        FROM transactions
-        WHERE status = 'posted' AND type = 'expense'
-        """
-    ).fetchall()
     totals = defaultdict(float)
-    for row in rows:
-        weekday = get_db().execute("SELECT strftime('%w', ?) AS weekday", (row["date"],)).fetchone()["weekday"]
-        totals[weekday] += _amount_eur(row)
+    for row in expense_allocations():
+        weekday = str((date.fromisoformat(row["date"]).weekday() + 1) % 7)
+        totals[weekday] += row["amount"]
     return [{"weekday": labels[key], "total": round(totals[key], 2)} for key in sorted(totals)]
 
 
@@ -154,14 +165,25 @@ def largest_expenses(limit=10):
         SELECT t.*, a.name AS account_name, a.logo AS account_logo,
                m.name AS merchant_name, m.logo AS merchant_logo,
                c.icon AS category_icon, c.color AS category_color
-        FROM transactions t
+        FROM ledger_transactions t
         JOIN accounts a ON a.id = t.account_id
         LEFT JOIN merchants m ON m.id = t.merchant_id
         LEFT JOIN categories c ON c.name = t.category
         WHERE t.status = 'posted' AND t.type = 'expense'
         """
     ).fetchall()
-    sorted_rows = sorted(rows, key=_amount_eur, reverse=True)[:limit]
-    return [dict(row, amount=round(_amount_eur(row), 2), currency="EUR") for row in sorted_rows]
+    net_amounts = defaultdict(float)
+    for allocation in expense_allocations():
+        net_amounts[allocation["transaction_id"]] += allocation["amount"]
+    sorted_rows = sorted(rows, key=lambda row: net_amounts[row["id"]], reverse=True)[:limit]
+    return [dict(row, amount=round(net_amounts[row["id"]], 2), currency="EUR") for row in sorted_rows]
 
 
+
+
+def six_month_flow():
+    today = date.today()
+    month_number = today.year * 12 + today.month - 1
+    keys = [f"{n // 12:04d}-{n % 12 + 1:02d}" for n in range(month_number - 5, month_number + 1)]
+    values = {row["month"]: row for row in monthly_summary(keys[0] + "-01", today.isoformat())}
+    return [values.get(key, dict(month=key, income=0, expenses=0, investments=0)) for key in keys]

@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-title">
-    <div class="title-copy"><p class="eyebrow">Keep a copy</p><h1>Backup</h1></div>
-    <a class="button" href="{{ url_for('backup.export_json') }}">Export JSON</a>
+<div class="page-title"><div><p class="eyebrow">Keep your money history safe</p><h1>Backup &amp; restore</h1></div><a class="button" href="{{ url_for('backup.export_json') }}">Download backup</a></div>
+{% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+<div class="backup-grid">
+<section class="dashboard-focus-panel"><h2>A complete copy</h2><p>Your backup includes accounts, transactions, budgets, recurring rules, goals, loans, merchant logos, and receipts. Keep a copy somewhere separate from this computer.</p><p class="field-help">The app saves a local snapshot each day it runs, and keeps a snapshot before a restore.</p></section>
+<section class="dashboard-focus-panel"><h2>Restore a backup</h2><p>Upload a JSON backup, ZIP snapshot, or encrypted .mmbackup file to check it before restoring.</p><form method="post" enctype="multipart/form-data" class="detail-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label>Backup file<input type="file" name="file" accept=".json,.zip,.mmbackup,application/json,application/zip" required></label><label>Passphrase (for encrypted backups)<input type="password" name="password" autocomplete="off"></label><button class="secondary-button">Check backup</button></form></section>
 </div>
-<section>
-    <h2>Local Data Export</h2>
-    <p class="muted-text">Download a JSON backup of your accounts, transactions, recurring rules, loans, budgets, balance checks, payment preference, and savings pots.</p>
-</section>
+<section class="dashboard-focus-panel"><h2>Encrypted local snapshots</h2><p>{{ 'Enabled. New local snapshots are encrypted.' if encrypted else 'Protect future local snapshots with a passphrase.' }} Keep the passphrase to restore your files on another installation. Existing plain backups and JSON exports remain readable.</p><form method="post" class="detail-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="encrypt"><label>{{ 'New passphrase' if encrypted else 'Passphrase' }}<input type="password" name="password" minlength="12" maxlength="500" autocomplete="new-password" required></label><button>{{ 'Change passphrase' if encrypted else 'Enable encryption' }}</button></form></section>
+{% if preview %}<section class="restore-preview dashboard-focus-panel"><h2>Backup checked</h2><p>{{ preview.accounts }} accounts · {{ preview.transactions }} transactions · {{ preview.logos }} merchant logos</p><p>Restoring replaces your current records. A snapshot of your current data will be saved first.</p><form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="action" value="restore"><input type="hidden" name="preview_id" value="{{ preview.id }}"><button>Restore this backup</button><a class="quiet-button" href="{{ url_for('backup.index') }}">Cancel</a></form></section>{% endif %}
+<section class="dashboard-focus-panel"><div class="section-heading"><h2>Local snapshots</h2><span class="field-help">Database, merchant logos, and receipts</span></div>{% for snapshot in snapshots %}<div class="snapshot-row"><span>{{ snapshot.name }}<small>{{ '%.0f'|format(snapshot.size / 1024) }} KB</small></span><a class="secondary-button" href="{{ url_for('backup.snapshot_download', name=snapshot.name) }}">Download</a></div>{% else %}<p class="empty-state">A snapshot will be saved the next time the app starts.</p>{% endfor %}</section>
 {% endblock %}

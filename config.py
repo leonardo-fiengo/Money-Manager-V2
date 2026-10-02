@@ -11,4 +11,5 @@ MERCHANT_LOGO_DIR = (
     if getattr(sys, "frozen", False)
     else RESOURCE_DIR / "static" / "uploads" / "merchants"
 )
-SECRET_KEY = "local-dev-secret-key"
+SECRET_KEY = None  # Generated once per installation and persisted in DATA_DIR.
+TEMPLATES_AUTO_RELOAD = not getattr(sys, "frozen", False)

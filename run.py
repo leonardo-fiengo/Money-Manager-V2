@@ -52,7 +52,10 @@ if __name__ == "__main__":
             raise SystemExit(0)
         raise SystemExit("Port 5000 is already in use by another program. Close it, then start Money Manager again.")
 
-    server = make_server(HOST, PORT, create_app(), threaded=True)
+    app = create_app()
+    from money_manager.services.scheduling import start_scheduler
+    scheduler_stop = start_scheduler(app)
+    server = make_server(HOST, PORT, app, threaded=True)
     if browser_enabled():
         threading.Thread(target=open_browser_when_ready, daemon=True).start()
     print(f"Money Manager is running at {APP_URL}")
@@ -62,4 +65,5 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("\nStopping Money Manager...")
     finally:
-        server.shutdown()
+        scheduler_stop.set()
+        server.server_close()

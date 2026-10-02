@@ -1,35 +1,36 @@
 {% extends "base.html" %}
 {% from "_macros.html" import recurring_visual %}
 {% block content %}
+{% include "_recurring_tabs.html" %}
 <div class="page-title">
     <div class="title-copy"><p class="eyebrow">On repeat</p><h1>Recurring</h1></div>
     <div class="inline-actions">
-        <form method="post" action="{{ url_for('recurring.generate') }}"><button>Generate Due</button></form>
+        <form method="post" action="{{ url_for('recurring.generate') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button>Generate Due</button></form>
         <a class="button" href="{{ url_for('recurring.new') }}">Add Rule</a>
     </div>
 </div>
-<table>
+<div class="table-scroll"><table>
     <tr><th></th><th>Name</th><th>Type</th><th>Account</th><th>Merchant</th><th>Frequency</th><th>Next Due</th><th>Amount</th><th></th></tr>
     {% for rule in rules %}
     <tr>
         <td class="visual-cell">
             {{ recurring_visual(rule) }}
         </td>
-        <td>{{ rule.name }}</td>
+        <td>{{ rule.name }}<small class="cell-note"><a href="{{ url_for('finance.occurrences',rule_id=rule.id) }}">Occurrence history</a></small></td>
         <td>{{ rule.type|title }}</td>
         <td><span class="category-inline">{% if rule.account_logo %}<img class="account-logo tiny" src="{{ rule.account_logo }}" alt="{{ rule.account_name }}">{% endif %}{{ rule.account_name }}</span></td>
         <td>{{ rule.merchant_name or "" }}</td>
         <td>{{ rule.frequency|title }}</td>
-        <td>{{ rule.next_due_date }}</td>
-        <td class="money">&euro;{{ "%.2f"|format(rule.amount) }}</td>
+        <td>{{ rule.next_due_date|display_date }}</td>
+        <td class="money">{{ rule.currency }} {{ "%.2f"|format(rule.amount) }}</td>
         <td class="actions">
             <a class="action-link" href="{{ url_for('recurring.edit', rule_id=rule.id) }}">Edit</a>
-            <form method="post" action="{{ url_for('recurring.delete', rule_id=rule.id) }}" data-confirm="Delete this recurring rule?"><button class="danger-link">Delete</button></form>
+            <form method="post" action="{{ url_for('recurring.delete', rule_id=rule.id) }}" data-confirm="Delete this recurring rule?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger-link">Delete</button></form>
         </td>
     </tr>
     {% else %}
     <tr><td colspan="9" class="empty-state">No recurring payments yet.</td></tr>
     {% endfor %}
-</table>
+</table></div>
 {% endblock %}
 

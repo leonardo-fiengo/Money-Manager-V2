@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS recurring_rules (
     account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
     merchant_id INTEGER REFERENCES merchants(id) ON DELETE SET NULL,
     visual_mode TEXT NOT NULL DEFAULT 'auto' CHECK (visual_mode IN ('auto', 'merchant_logo', 'standard')),
+    is_subscription INTEGER NOT NULL DEFAULT 0,
     frequency TEXT NOT NULL CHECK (frequency IN ('daily', 'weekly', 'monthly', 'yearly')),
     next_due_date TEXT NOT NULL,
     is_active INTEGER NOT NULL DEFAULT 1,
@@ -132,6 +133,62 @@ CREATE TABLE IF NOT EXISTS savings_pots (
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS import_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE RESTRICT,
+    filename TEXT NOT NULL,
+    headers_json TEXT NOT NULL,
+    rows_json TEXT NOT NULL,
+    mapping_json TEXT,
+    status TEXT NOT NULL DEFAULT 'mapping',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS import_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    needle TEXT NOT NULL,
+    merchant_id INTEGER REFERENCES merchants(id) ON DELETE SET NULL,
+    category TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS transaction_import_hashes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fingerprint TEXT NOT NULL,
+    transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    batch_id INTEGER NOT NULL REFERENCES import_batches(id) ON DELETE CASCADE
+);
+CREATE TABLE IF NOT EXISTS transaction_splits (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    category TEXT NOT NULL,
+    amount_eur REAL NOT NULL CHECK (amount_eur > 0)
+);
+CREATE TABLE IF NOT EXISTS transaction_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    related_transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL CHECK (kind IN ('refund', 'reimbursement')),
+    UNIQUE(source_transaction_id, related_transaction_id)
+);
+CREATE TABLE IF NOT EXISTS transaction_tags (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    transaction_id INTEGER NOT NULL REFERENCES transactions(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL,
+    UNIQUE(transaction_id, tag)
+);
+CREATE TABLE IF NOT EXISTS pot_movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    pot_id INTEGER NOT NULL REFERENCES savings_pots(id) ON DELETE CASCADE,
+    delta REAL NOT NULL,
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE TABLE IF NOT EXISTS budget_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    rows_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(date);
 CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
 CREATE INDEX IF NOT EXISTS idx_transactions_type ON transactions(type);
@@ -141,4 +198,7 @@ CREATE INDEX IF NOT EXISTS idx_loans_status ON loans(status);
 CREATE INDEX IF NOT EXISTS idx_loan_payments_loan ON loan_payments(loan_id);
 CREATE INDEX IF NOT EXISTS idx_categories_name ON categories(name);
 CREATE INDEX IF NOT EXISTS idx_budgets_month ON budgets(month);
+CREATE INDEX IF NOT EXISTS idx_import_hashes_fingerprint ON transaction_import_hashes(fingerprint);
+CREATE INDEX IF NOT EXISTS idx_transaction_splits_tx ON transaction_splits(transaction_id);
+CREATE INDEX IF NOT EXISTS idx_transaction_tags_tag ON transaction_tags(tag);
 """

@@ -2,7 +2,7 @@
 {% block content %}
 <div class="page-title"><div class="title-copy"><p class="eyebrow">Make sense of spending</p><h1>{{ "Edit" if category else "Add" }} Category</h1></div></div>
 {% if error %}<p class="form-error">{{ error }}</p>{% endif %}
-<form class="form" method="post">
+<form class="form" method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <label>Name <input name="name" value="{{ category.name if category else '' }}" required></label>
     <label>Type
         <select name="type">

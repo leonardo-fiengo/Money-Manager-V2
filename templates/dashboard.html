@@ -1,148 +1,28 @@
 {% extends "base.html" %}
+{% from "_icons.html" import icon %}
 {% block content %}
-<section class="dashboard-hero">
-    <div>
-        <p class="eyebrow">Overview</p>
-        <h1>Dashboard</h1>
-    </div>
-    <div class="hero-balance">
-        <span>Current net balance &middot; all accounts</span>
-        <strong class="kpi-value" data-countup data-countup-key="net-balance" data-value="{{ '%.2f'|format(metrics.net_balance) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.net_balance) }}</strong>
-    </div>
-</section>
-
-<div class="dashboard-period"><p class="muted-text">Income, spending and charts &middot; <strong>{{ period.label }}</strong></p><form method="get"><input type="hidden" name="account_sort" value="{{ account_sort }}"><label class="sr-only" for="dashboard-period">Dashboard period</label><select id="dashboard-period" name="period" onchange="this.form.submit()">{% for key, label in [('month', 'This month'), ('last_month', 'Last month'), ('year', 'This year'), ('all', 'All time')] %}<option value="{{ key }}" {% if period.period == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form></div>
-<section class="metrics metrics-band" data-kpi-cards>
-    <a class="metric-card metric-income" href="{{ url_for('transactions.index', type='income', start=period.start, end=period.end) }}" aria-label="View income transactions">
-        <span class="metric-icon">&uarr;</span>
-        <div><span>Income</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(metrics.income) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.income) }}</strong></div>
-    </a>
-    <a class="metric-card metric-expense" href="{{ url_for('transactions.index', type='expense', start=period.start, end=period.end) }}" aria-label="View expense transactions">
-        <span class="metric-icon">&darr;</span>
-        <div><span>Expenses</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(metrics.expenses) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.expenses) }}</strong></div>
-    </a>
-    <a class="metric-card metric-investment" href="{{ url_for('transactions.index', type='investment', start=period.start, end=period.end) }}" aria-label="View investment transactions">
-        <span class="metric-icon">&nearr;</span>
-        <div><span>Investments</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(metrics.investments) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(metrics.investments) }}</strong></div>
-    </a>
-    <a class="metric-card metric-savings" href="{{ url_for('analytics.index') }}" aria-label="View analytics">
-        <span class="metric-icon">%</span>
-        <div><span>Savings Rate</span><strong class="kpi-value" data-countup data-value="{{ metrics.savings_rate }}" data-suffix="%" data-decimals="1">{{ metrics.savings_rate }}%</strong></div>
-    </a>
-    <a class="metric-card metric-loan-in" href="{{ url_for('loans.index') }}" aria-label="View loans to receive">
-        <span class="metric-icon">&larr;</span>
-        <div><span>Loans to receive &middot; current</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(loan_summary.to_receive) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(loan_summary.to_receive) }}</strong></div>
-    </a>
-    <a class="metric-card metric-loan-out" href="{{ url_for('loans.index') }}" aria-label="View loans to pay">
-        <span class="metric-icon">&rarr;</span>
-        <div><span>Loans to pay &middot; current</span><strong class="kpi-value" data-countup data-value="{{ '%.2f'|format(loan_summary.to_pay) }}" data-prefix="&euro;" data-decimals="2">&euro;{{ "%.2f"|format(loan_summary.to_pay) }}</strong></div>
-    </a>
-</section>
-
-<section class="chart-grid">
-    <article class="chart-panel chart-panel-wide">
-        <div class="panel-heading">
-            <h2>Monthly Flow</h2>
-            <span>Income, expenses, and investments</span>
-        </div>
-        <div class="chart-frame"><canvas id="dashboardMonthlyChart"></canvas></div>
-    </article>
-    <article class="chart-panel">
-        <div class="panel-heading">
-            <h2>Expense Mix</h2>
-            <span>By category</span>
-        </div>
-        <div class="chart-frame"><canvas id="dashboardCategoryChart"></canvas></div>
-    </article>
-</section>
-
-<section class="split dashboard-lists">
-    <div class="dashboard-accounts dashboard-panel-list">
-        <div class="dashboard-panel-heading">
-            <h2>Accounts</h2><a class="quiet-button" href="{{ url_for('accounts.check') }}">Check balances</a>
-            <form class="dashboard-sort-form" method="get"><input type="hidden" name="period" value="{{ period.period }}">
-                <select name="account_sort" aria-label="Accounts order" onchange="this.form.submit()">
-                    <option value="name" {% if account_sort == 'name' %}selected{% endif %}>Name</option>
-                    <option value="amount" {% if account_sort == 'amount' %}selected{% endif %}>Amount</option>
-                </select>
-            </form>
-        </div>
-        <div class="dashboard-list">
-            {% for account in accounts %}
-            <a class="dashboard-row account-row" href="{{ url_for('transactions.index', account_id=account.id) }}">
-                {% if account.logo %}
-                <img class="dashboard-row-logo" src="{{ account.logo }}" alt="">
-                {% else %}
-                <span class="dashboard-row-logo dashboard-row-fallback">{{ account.name[:1] }}</span>
-                {% endif %}
-                <span class="dashboard-row-main">
-                    <strong>{{ account.name }}</strong>
-                    <small>{{ account.type.replace('_', ' ') }}</small>
-                </span>
-                <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(account.balance) }}</span>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-    <div class="dashboard-panel-list">
-        <h2>Next 30 days</h2>
-        <div class="upcoming-summary"><span>Scheduled outgoing <strong>&euro;{{ '%.2f'|format(upcoming.outgoing) }}</strong></span><span>Projected net balance <strong>&euro;{{ '%.2f'|format(upcoming.projected) }}</strong></span></div>
-        <p class="field-help">Through {{ upcoming.end }}. Includes pending payments and active recurring rules; excludes unrecorded spending. Transfers do not change the total.</p>
-        <div class="dashboard-list">
-            {% for tx in upcoming.rows %}
-            <a class="dashboard-row pending-row" href="{{ url_for('recurring.index') if tx.source == 'recurring' else url_for('pending.index') }}">
-                {% if tx.merchant_logo %}
-                <img class="dashboard-row-logo" src="{{ tx.merchant_logo }}" alt="">
-                {% elif tx.category_icon %}
-                <span class="dashboard-row-logo dashboard-category-logo" style="--category-color: {{ tx.category_color or '#147d64' }}" data-icon="{{ tx.category_icon }}"></span>
-                {% else %}
-                <span class="dashboard-row-logo dashboard-type-logo dashboard-type-{{ tx.type }}">{% if tx.type == 'income' %}&uarr;{% elif tx.type == 'expense' %}&darr;{% elif tx.type == 'transfer' %}&harr;{% else %}&nearr;{% endif %}</span>
-                {% endif %}
-                <span class="dashboard-date-chip"><strong>{{ tx.date[8:10] }}</strong><small>{{ tx.date[:7] }}</small></span>
-                <span class="dashboard-row-main">
-                    <strong>{{ tx.description or tx.merchant_name or tx.category or tx.type.title() }}</strong>
-                    <small>{{ tx.account_name }}{% if tx.destination_account_name %} to {{ tx.destination_account_name }}{% endif %}</small>
-                </span>
-                <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(tx.amount_eur or tx.amount) }}</span>
-            </a>
-            {% else %}
-            <div class="dashboard-empty">Nothing scheduled in the next 30 days.</div>
-            {% endfor %}
-        </div>
-    </div>
-</section>
-
-<section class="split dashboard-lists">
-    <div class="dashboard-panel-list">
-        <h2>Monthly Summary</h2>
-        <div class="dashboard-list">
-            {% for row in monthly %}
-            <div class="dashboard-row monthly-row">
-                <span class="dashboard-date-chip"><strong>{{ row.month[5:7] }}</strong><small>{{ row.month[:4] }}</small></span>
-                <span class="monthly-metrics">
-                    <span><i class="dashboard-mini-icon mini-income">&uarr;</i><small>Income</small><strong>&euro;{{ "%.2f"|format(row.income) }}</strong></span>
-                    <span><i class="dashboard-mini-icon mini-expense">&darr;</i><small>Expenses</small><strong>&euro;{{ "%.2f"|format(row.expenses) }}</strong></span>
-                    <span><i class="dashboard-mini-icon mini-investment">&nearr;</i><small>Investments</small><strong>&euro;{{ "%.2f"|format(row.investments) }}</strong></span>
-                </span>
+<div class="dashboard-focus dashboard-studio">
+    <header class="dashboard-welcome">
+        <div><p class="eyebrow">YOUR MONEY, AT A GLANCE</p><h1>A little more clarity.</h1><p class="dashboard-intro">Everything you need to know about your money.</p></div>
+        <div class="dashboard-toolbar"><form method="get"><label class="sr-only" for="dashboard-period">Dashboard period</label><select id="dashboard-period" name="period" onchange="this.form.submit()">{% for key, label in [('month', 'This month'), ('last_month', 'Last month'), ('year', 'This year'), ('all', 'All time')] %}<option value="{{ key }}" {% if period.period == key %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></form><button type="button" class="button dashboard-add" aria-label="Add transaction" data-open-quick-add>{{ icon('plus') }}<span>Add transaction</span></button></div>
+    </header>
+    {% if inbox_items %}<a class="dashboard-inbox" href="{{ url_for('inbox.index') }}"><span class="inbox-symbol">{{ inbox_items|length }}</span><span><strong>Needs your attention</strong><small>{{ inbox_items[0].title }}</small></span><span class="inbox-review">Review {{ icon('arrow') }}</span></a>{% endif %}
+    <div class="studio-top-grid">
+        <section class="dashboard-balance studio-balance">
+            <div class="balance-topline"><span class="balance-caption"><span class="balance-status" aria-hidden="true"></span>Total balance</span><button type="button" class="balance-privacy" data-balance-privacy aria-label="Hide balances" title="Hide balances">{{ icon('eye') }}</button></div>
+            <div class="balance-content"><div class="balance-hero-copy"><strong data-private-balance>{{ metrics.net_balance|money }}</strong><span class="balance-description">Across {{ accounts|length }} accounts</span><div class="balance-change"><span class="change-chip {{ 'change-negative' if metrics.income - metrics.expenses - metrics.investments < 0 else '' }}"><span data-private-balance>{{ '%+.2f'|format(metrics.income - metrics.expenses - metrics.investments) }} &euro;</span></span><small>net flow &middot; {{ period.label }}</small></div></div><div class="balance-history"><svg class="balance-sparkline" viewBox="0 0 240 72" preserveAspectRatio="none" aria-hidden="true" data-sparkline='{{ balance_trend|tojson }}'></svg><span>Balance history</span></div></div>
+            <div class="dashboard-kpis" role="region" aria-label="Period summary">
+                <a href="{{ url_for('transactions.index', type='income', start=period.start, end=period.end) }}"><span class="kpi-heading">{{ icon('down', 'kpi-symbol kpi-income') }}Income</span><strong data-private-balance>{{ metrics.income|money }}</strong></a>
+                <a href="{{ url_for('transactions.index', type='expense', start=period.start, end=period.end) }}"><span class="kpi-heading">{{ icon('up', 'kpi-symbol kpi-spent') }}Spent</span><strong data-private-balance>{{ metrics.expenses|money }}</strong></a>
+                <a href="{{ url_for('analytics.index') }}"><span class="kpi-heading">{{ icon('budgets', 'kpi-symbol kpi-saved') }}Savings rate</span><strong data-private-balance>{{ '%.1f'|format(metrics.savings_rate) }}%</strong></a>
             </div>
-            {% else %}
-            <div class="dashboard-empty">No monthly data yet.</div>
-            {% endfor %}
-        </div>
+        </section>
+{% if 'accounts' in widgets %}        <section class="dashboard-focus-panel studio-accounts"><div class="section-heading"><div><p class="panel-eyebrow">THE BIG PICTURE</p><h2>Your accounts <span class="count-chip">{{ accounts|length }}</span></h2></div><a class="icon-link" href="{{ url_for('accounts.index') }}" aria-label="View all accounts">{{ icon('arrow') }}</a></div><div class="overview-accounts">{% for account in accounts[:5] %}<a class="overview-account" href="{{ url_for('accounts.detail', account_id=account.id) }}">{% if account.logo %}<img class="overview-account-icon" src="{{ account.logo }}" alt="">{% else %}<span class="overview-account-icon">{{ icon('accounts') }}</span>{% endif %}<span><strong>{{ account.name }}</strong><small>{{ account.type.replace('_', ' ')|title }}</small></span><strong>{{ account.balance|money }}</strong></a>{% else %}<div class="action-empty"><p>Add an account to get started.</p><a class="secondary-button" href="{{ url_for('accounts.new') }}">Add your first account</a></div>{% endfor %}</div></section>{% endif %}
     </div>
-    <div class="dashboard-panel-list">
-        <h2>Expenses by Category</h2>
-        <div class="dashboard-list">
-            {% for row in categories %}
-            <a class="dashboard-row category-row" href="{{ url_for('transactions.index', category=row.category, start=period.start, end=period.end) }}">
-                <span class="dashboard-row-logo dashboard-category-logo" style="--category-color: {{ row.color }}" data-icon="{{ row.icon }}"></span>
-                <span class="dashboard-row-main"><strong>{{ row.category }}</strong><small>Category spending</small></span>
-                <span class="dashboard-row-amount">&euro;{{ "%.2f"|format(row.total) }}</span>
-            </a>
-            {% else %}
-            <div class="dashboard-empty">No categorized expenses yet.</div>
-            {% endfor %}
-        </div>
+    <div class="studio-detail-grid">
+{% if 'cashflow' in widgets %}        <section class="dashboard-focus-panel studio-cashflow"><div class="section-heading"><div><p class="panel-eyebrow">IN AND OUT</p><h2>Cash flow</h2><p class="section-note">The last six months, in perspective.</p></div><a class="text-link" href="{{ url_for('analytics.index') }}">Explore {{ icon('arrow') }}</a></div><div class="chart-frame dashboard-flow-chart" data-private-chart><canvas id="dashboardMonthlyChart" data-flow-trend='{{ flow_trend|tojson }}' role="img" aria-label="Monthly cash flow over the last six months"></canvas></div></section>{% endif %}
+{% if 'upcoming' in widgets %}        <section class="dashboard-focus-panel studio-upcoming"><div class="section-heading"><div><p class="panel-eyebrow">ON THE HORIZON</p><h2>Coming up</h2></div><a class="icon-link" href="{{ url_for('calendar.index') }}" aria-label="View payment schedule">{{ icon('arrow') }}</a></div><div class="upcoming-payments">{% for tx in upcoming.rows[:4] %}<a class="upcoming-payment" href="{{ url_for('recurring.index') if tx.source == 'recurring' else url_for('pending.index') }}"><time class="payment-date" datetime="{{ tx.date }}"><strong>{{ tx.date[8:10] }}</strong><span>{{ tx.date|display_date('%b') }}</span></time><span class="payment-copy"><strong>{{ tx.description or tx.merchant_name or tx.category or tx.type.title() }}</strong><small>{{ tx.account_name }} &middot; {{ 'Recurring' if tx.source == 'recurring' else 'Pending' }}</small></span><strong class="payment-amount {{ 'positive' if tx.type == 'income' else 'negative' }}">{{ '+' if tx.type == 'income' else '&minus;'|safe }}{{ (tx.amount_eur or tx.amount)|money }}</strong></a>{% else %}<div class="action-empty"><span class="empty-symbol">{{ icon('calendar') }}</span><h3>A clear calendar.</h3><p>No payments scheduled in the next 30 days.</p><a href="{{ url_for('recurring.new') }}">Plan a recurring payment {{ icon('arrow') }}</a></div>{% endfor %}</div>{% if upcoming.rows %}<div class="panel-footnote"><span>Outgoings &middot; next 30 days</span><strong>{{ upcoming.outgoing|money }}</strong></div>{% endif %}</section>{% endif %}
     </div>
-</section>
+{% if 'budgets' in widgets %}    <section class="dashboard-focus-panel studio-budget {% if not budget_preview %}studio-budget-empty{% endif %}">{% if budget_preview %}<div class="section-heading"><div><p class="panel-eyebrow">A PLAN FOR YOUR MONEY</p><h2>Your budgets</h2></div><a class="text-link" href="{{ url_for('budgets.index') }}">Manage {{ icon('arrow') }}</a></div><div class="budget-preview">{% for budget in budget_preview[:4] %}{% set percent = budget.spent_amount / budget.available_amount * 100 if budget.available_amount else 0 %}<a href="{{ url_for('budgets.index') }}" class="{{ 'budget-over' if percent > 100 else '' }}"><strong>{{ budget.category_name }}</strong><span>{{ budget.spent_amount|money }} / {{ budget.available_amount|money }}</span><span class="budget-bar"><span style="width: {{ [percent,100]|min }}%"></span></span><small>{{ (budget.available_amount - budget.spent_amount)|abs|money }} {{ 'over budget' if percent > 100 else 'left' }}</small></a>{% endfor %}</div>{% else %}<div class="budget-graphic" aria-hidden="true"><span class="budget-orbit orbit-one"></span><span class="budget-orbit orbit-two"></span><span class="budget-orbit orbit-three"></span><span class="budget-orbit-dot"></span>{{ icon('target') }}</div><div class="budget-invitation"><p class="panel-eyebrow">SMALL PLANS. MORE PEACE OF MIND.</p><h2>Make room for what matters.</h2><p>Give your spending a monthly limit, one category at a time.</p></div><a class="secondary-button" href="{{ url_for('budgets.index') }}">Create your first budget {{ icon('arrow') }}</a>{% endif %}</section>{% endif %}
+</div>
 {% endblock %}

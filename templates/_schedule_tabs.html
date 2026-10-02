@@ -1,0 +1,1 @@
+<nav class="page-tabs" aria-label="Scheduled activity views"><a href="{{ url_for('calendar.index') }}" {% if request.blueprint == 'calendar' %}aria-current="page"{% endif %}>Calendar</a><a href="{{ url_for('pending.index') }}" {% if request.blueprint == 'pending' %}aria-current="page"{% endif %}>Pending payments</a></nav>

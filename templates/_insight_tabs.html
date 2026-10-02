@@ -1,0 +1,1 @@
+<nav class="page-tabs" aria-label="Insight views"><a href="{{ url_for('analytics.index') }}" {% if request.blueprint == 'analytics' %}aria-current="page"{% endif %}>Spending insights</a><a href="{{ url_for('forecast.index') }}" {% if request.blueprint == 'forecast' %}aria-current="page"{% endif %}>Forecast</a></nav>

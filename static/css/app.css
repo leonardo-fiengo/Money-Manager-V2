@@ -947,6 +947,7 @@ label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; font-weig
     background-repeat: no-repeat;
     background-size: contain;
 }
+.choice-logo-fallback { background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; }
 .choice-category {
     color: #fff;
 }

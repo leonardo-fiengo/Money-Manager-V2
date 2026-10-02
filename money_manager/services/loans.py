@@ -1,4 +1,5 @@
 from money_manager.db.connection import get_db
+from money_manager.utils.money import to_minor, money_value
 from money_manager.utils.dates import today_iso
 
 
@@ -11,8 +12,8 @@ def list_loans(status=None):
     return get_db().execute(
         f"""
         SELECT l.*,
-               COALESCE(SUM(p.amount), 0) AS paid_amount,
-               MAX(l.expected_total_amount - COALESCE((SELECT SUM(amount) FROM loan_payments WHERE loan_id = l.id), 0), 0) AS outstanding_amount
+               COALESCE(SUM(p.amount_minor) / 100.0, 0) AS paid_amount,
+               MAX(l.expected_total_amount - COALESCE((SELECT SUM(amount_minor) / 100.0 FROM loan_payments WHERE loan_id = l.id), 0), 0) AS outstanding_amount
         FROM loans l
         LEFT JOIN loan_payments p ON p.loan_id = l.id
         {where}
@@ -27,8 +28,8 @@ def get_loan(loan_id):
     return get_db().execute(
         """
         SELECT l.*,
-               COALESCE((SELECT SUM(amount) FROM loan_payments WHERE loan_id = l.id), 0) AS paid_amount,
-               MAX(l.expected_total_amount - COALESCE((SELECT SUM(amount) FROM loan_payments WHERE loan_id = l.id), 0), 0) AS outstanding_amount
+               COALESCE((SELECT SUM(amount_minor) / 100.0 FROM loan_payments WHERE loan_id = l.id), 0) AS paid_amount,
+               MAX(l.expected_total_amount - COALESCE((SELECT SUM(amount_minor) / 100.0 FROM loan_payments WHERE loan_id = l.id), 0), 0) AS outstanding_amount
         FROM loans l
         WHERE l.id = ?
         """,
@@ -46,11 +47,11 @@ def list_payments(loan_id):
 def create_loan(data):
     _validate_loan_data(data)
     db = get_db()
-    expected_total = float(data.get("expected_total_amount") or data["principal_amount"])
+    expected_total = money_value(data.get("expected_total_amount") or data["principal_amount"])
     cursor = db.execute(
         """
         INSERT INTO loans (
-            direction, counterparty, principal_amount, expected_total_amount,
+            direction, counterparty, principal_amount_minor, expected_total_amount_minor,
             start_date, due_date, notes, status
         )
         VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
@@ -58,8 +59,8 @@ def create_loan(data):
         (
             data["direction"],
             data["counterparty"],
-            float(data["principal_amount"]),
-            expected_total,
+            to_minor(data["principal_amount"]),
+            to_minor(expected_total),
             data.get("start_date") or today_iso(),
             data.get("due_date") or None,
             data.get("notes") or None,
@@ -72,19 +73,19 @@ def create_loan(data):
 def update_loan(loan_id, data):
     _validate_loan_data(data, loan_id)
     db = get_db()
-    expected_total = float(data.get("expected_total_amount") or data["principal_amount"])
+    expected_total = money_value(data.get("expected_total_amount") or data["principal_amount"])
     db.execute(
         """
         UPDATE loans
-        SET direction = ?, counterparty = ?, principal_amount = ?, expected_total_amount = ?,
+        SET direction = ?, counterparty = ?, principal_amount_minor = ?, expected_total_amount_minor = ?,
             start_date = ?, due_date = ?, notes = ?, status = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """,
         (
             data["direction"],
             data["counterparty"],
-            float(data["principal_amount"]),
-            expected_total,
+            to_minor(data["principal_amount"]),
+            to_minor(expected_total),
             data.get("start_date") or today_iso(),
             data.get("due_date") or None,
             data.get("notes") or None,
@@ -107,13 +108,13 @@ def add_payment(loan_id, data):
     db = get_db()
     db.execute(
         """
-        INSERT INTO loan_payments (loan_id, date, amount, notes)
+        INSERT INTO loan_payments (loan_id, date, amount_minor, notes)
         VALUES (?, ?, ?, ?)
         """,
         (
             loan_id,
             data.get("date") or today_iso(),
-            float(data["amount"]),
+            to_minor(data["amount"]),
             data.get("notes") or None,
         ),
     )
@@ -138,7 +139,7 @@ def loan_summary():
             COALESCE(SUM(CASE WHEN direction = 'lent_out' AND status = 'open' THEN expected_total_amount - paid_amount END), 0) AS to_receive,
             COALESCE(SUM(CASE WHEN direction = 'borrowed' AND status = 'open' THEN expected_total_amount - paid_amount END), 0) AS to_pay
         FROM (
-            SELECT l.*, COALESCE((SELECT SUM(amount) FROM loan_payments WHERE loan_id = l.id), 0) AS paid_amount
+            SELECT l.*, COALESCE((SELECT SUM(amount_minor) / 100.0 FROM loan_payments WHERE loan_id = l.id), 0) AS paid_amount
             FROM loans l
         )
         """
@@ -164,8 +165,8 @@ def _refresh_status(loan_id):
 
 def _validate_loan_data(data, loan_id=None):
     direction = data.get("direction")
-    principal = float(data.get("principal_amount") or 0)
-    expected_total = float(data.get("expected_total_amount") or principal)
+    principal = money_value(data.get("principal_amount") or 0)
+    expected_total = money_value(data.get("expected_total_amount") or principal)
     paid = 0
     if loan_id:
         row = get_loan(loan_id)
@@ -184,7 +185,7 @@ def _validate_loan_data(data, loan_id=None):
 
 
 def _validate_payment_data(loan_id, data):
-    amount = float(data.get("amount") or 0)
+    amount = money_value(data.get("amount") or 0)
     loan = get_loan(loan_id)
     if not loan:
         raise ValueError("Loan does not exist.")

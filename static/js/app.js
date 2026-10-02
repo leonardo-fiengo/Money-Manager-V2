@@ -34,6 +34,10 @@ function iconMarkup(icon) {
     return icons[icon] || `<span>${escapeHtml(icon || "")}</span>`;
 }
 
+document.querySelectorAll('[data-category-glyph]').forEach((element) => {
+    element.innerHTML = iconMarkup(element.dataset.categoryGlyph);
+});
+
 function escapeHtml(value) {
     const span = document.createElement("span");
     span.textContent = value;
@@ -52,7 +56,7 @@ function openQuickOption(select) {
     dialog.querySelector('[data-category-type]').hidden = kind !== 'category';
     dialog.querySelector('[data-merchant-category]').hidden = kind !== 'merchant';
     dialog.querySelector('[data-quick-error]').hidden = true;
-    form.elements.type.value = document.querySelector('[data-transaction-form] [name="type"]').value;
+    form.elements.type.value = document.querySelector('[data-transaction-form] [name="type"]:checked').value;
     dialog.showModal();
     form.elements.name.focus();
 }
@@ -89,6 +93,9 @@ function updateSelectVisual(select) {
 function optionVisual(option) {
     if (option.dataset.kind === "logo" && option.dataset.logo) {
         return `<span class="choice-icon choice-logo" style="background-image: url('${option.dataset.logo}')"></span>`;
+    }
+    if (option.dataset.kind === "logo") {
+        return `<span class="choice-icon choice-logo-fallback">${escapeHtml(optionLabel(option).slice(0, 1).toUpperCase())}</span>`;
     }
     if (option.dataset.kind === "color" && option.dataset.color) {
         return `<span class="choice-icon choice-category" style="background-color: ${option.dataset.color}">${iconMarkup(option.dataset.icon)}</span>`;
@@ -143,8 +150,8 @@ function enhanceSelect(select) {
     trigger.setAttribute("aria-haspopup", "listbox");
     trigger.setAttribute("aria-expanded", "false");
     const fieldNames = {merchant_id: 'Merchant', category: 'Category', account_id: 'Payment account', destination_account_id: 'Destination account'};
-    const linkedLabel = select.id && document.querySelector(`label[for="${CSS.escape(select.id)}"]`);
-    trigger.setAttribute("aria-label", select.getAttribute("aria-label") || linkedLabel?.textContent.trim() || fieldNames[select.name] || select.closest("label")?.firstChild.textContent.trim() || select.name);
+    const linkedLabel = select.id ? document.querySelector(`label[for="${CSS.escape(select.id)}"]`) : null;
+    trigger.setAttribute("aria-label", select.getAttribute("aria-label") || linkedLabel?.textContent?.trim() || fieldNames[select.name] || select.closest("label")?.firstChild?.textContent?.trim() || select.name);
 
     const menu = document.createElement("div");
     menu.className = "enhanced-menu";
@@ -152,7 +159,7 @@ function enhanceSelect(select) {
 
     function renderOptions() {
     menu.replaceChildren();
-    Array.from(select.options).forEach((option) => {
+    Array.from(select.options).filter((option) => !option.hidden).forEach((option) => {
         const item = document.createElement("button");
         item.type = "button";
         item.className = "enhanced-option";
@@ -537,7 +544,7 @@ function enhanceMonthInput(input) {
     });
 }
 
-document.querySelectorAll("[data-icon]").forEach((element) => {
+document.querySelectorAll("[data-icon]:not(option)").forEach((element) => {
     element.innerHTML = iconMarkup(element.dataset.icon);
 });
 
@@ -666,10 +673,29 @@ if (transactionForm) {
         destination.disabled = !visible;
         destination.required = visible;
     }
-    type.addEventListener('change', syncDestination);
-    syncDestination();
     const merchant = transactionForm.elements.merchant_id;
     const category = transactionForm.elements.category;
+    function syncType() {
+        syncDestination();
+        Array.from(category.options).forEach((option) => {
+            option.hidden = Boolean(option.value && option.dataset.categoryType !== 'any' && option.dataset.categoryType !== type.value);
+        });
+        if (category.selectedOptions[0]?.hidden) {
+            category.value = '';
+            category.dispatchEvent(new Event('change', {bubbles: true}));
+        }
+        category.dispatchEvent(new Event('optionschanged'));
+    }
+    transactionForm.querySelectorAll('input[name="type"]').forEach((input) => input.addEventListener('change', syncType));
+    syncType();
+    const dateInput = transactionForm.querySelector('input[name="date"]');
+    const futureNote = transactionForm.querySelector('[data-future-note]');
+    function syncFuture() {
+        const today = dateToIso(new Date());
+        futureNote.hidden = !(dateInput.value > today);
+    }
+    transactionForm.querySelector('.date-control').addEventListener('change', syncFuture);
+    syncFuture();
     let categoryChosen = Boolean(category.value);
     category.addEventListener('change', () => { categoryChosen = Boolean(category.value); });
     merchant.addEventListener('change', () => {
@@ -698,15 +724,16 @@ if (quickDialog) {
         button.disabled = true;
         error.hidden = true;
         try {
-            const response = await fetch(`/transactions/options/${kind}`, {method: 'POST', body: new FormData(form)});
+            const response = await fetch(`/transactions/options/${kind}`, {method: 'POST', body: (() => { const body = new FormData(form); body.set('csrf_token', document.querySelector('meta[name=csrf-token]').content); return body; })()});
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || 'Could not create this item. Please try again.');
             const option = new Option(data.name, kind === 'category' ? data.name : String(data.id), true, true);
             option.dataset.label = data.name;
-            option.dataset.kind = kind === 'category' ? 'color' : 'none';
+            option.dataset.kind = kind === 'category' ? 'color' : 'logo';
             if (kind === 'category') {
                 option.dataset.color = data.color;
                 option.dataset.icon = data.icon || data.name[0];
+                option.dataset.categoryType = form.elements.type.value;
                 form.elements.default_category.add(new Option(data.name, data.name));
             } else {
                 option.dataset.defaultCategory = data.default_category || '';

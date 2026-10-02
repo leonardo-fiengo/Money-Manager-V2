@@ -10,9 +10,17 @@ def ensure_database(app):
     with app.app_context():
         current_app.config["DATA_DIR"].mkdir(exist_ok=True)
         db = get_db()
+        if db.execute('PRAGMA quick_check').fetchone()['quick_check']!='ok':
+            raise ValueError('Database integrity check failed. Restore a checked backup before continuing.')
+        tables={r['name'] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+        if 'transactions' in tables and ('schema_migrations' not in tables or not db.execute("SELECT 1 FROM schema_migrations WHERE name='012_pot_sources'").fetchone()):
+            from money_manager.services.backup import create_snapshot
+            create_snapshot('before-migration')
         db.executescript(SCHEMA)
         db.commit()
         run_migrations(db)
+        if db.execute('PRAGMA integrity_check').fetchone()['integrity_check']!='ok' or db.execute('PRAGMA foreign_key_check').fetchone():
+            raise ValueError('Database integrity check failed after migration.')
         seed_defaults()
 
 
@@ -32,7 +40,38 @@ def run_migrations(db):
     _run_once(db, "004_transaction_amount_eur", _add_transaction_amount_eur)
     _run_once(db, "005_nexi_prepaid_account", _fix_nexi_prepaid_account)
     _run_once(db, "006_prepaid_card_account_type", _add_prepaid_card_account_type)
+    _run_once(db, "007_budget_rollover", _add_budget_rollover)
+    _run_once(db, "008_subscription_flag", _add_subscription_flag)
     _backfill_transaction_amount_eur(db)
+    from money_manager.db.money_migration import migrate_money
+    _run_once(db, "009_integer_money", migrate_money)
+    _run_once(db, "010_scheduling_and_rates", _add_scheduling_and_rates)
+    from money_manager.db.roadmap_migration import migrate_roadmap
+    _run_once(db, "011_finance_workflows", migrate_roadmap)
+    _run_once(db, "012_pot_sources", _add_pot_sources)
+
+
+def _add_pot_sources(db):
+    from money_manager.db.atomic import atomic
+    with atomic(db):
+        db.execute("ALTER TABLE savings_pots ADD COLUMN spent_at TEXT")
+        db.execute("ALTER TABLE savings_pots ADD COLUMN deleted_at TEXT")
+        db.execute("""CREATE TABLE pot_sources (
+            pot_id INTEGER NOT NULL REFERENCES savings_pots(id) ON DELETE CASCADE,
+            account_id INTEGER NOT NULL REFERENCES accounts(id),
+            reserved_minor INTEGER NOT NULL CHECK(typeof(reserved_minor)='integer' AND reserved_minor>=0),
+            PRIMARY KEY(pot_id,account_id))""")
+        db.execute("""CREATE TABLE pot_movement_sources (
+            movement_id INTEGER NOT NULL REFERENCES pot_movements(id) ON DELETE CASCADE,
+            account_id INTEGER NOT NULL REFERENCES accounts(id),
+            delta_minor INTEGER NOT NULL CHECK(typeof(delta_minor)='integer'),
+            PRIMARY KEY(movement_id,account_id))""")
+        db.execute("""CREATE TABLE pot_spending (
+            pot_id INTEGER NOT NULL REFERENCES savings_pots(id) ON DELETE CASCADE,
+            account_id INTEGER NOT NULL REFERENCES accounts(id),
+            transaction_id INTEGER REFERENCES transactions(id) ON DELETE SET NULL,
+            amount_minor INTEGER NOT NULL CHECK(typeof(amount_minor)='integer' AND amount_minor>0),
+            PRIMARY KEY(pot_id,account_id))""")
 
 
 def _run_once(db, name, migration):
@@ -40,8 +79,20 @@ def _run_once(db, name, migration):
     if exists:
         return
     migration(db)
-    db.execute("INSERT INTO schema_migrations (name) VALUES (?)", (name,))
+    db.execute("INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)", (name,))
     db.commit()
+
+
+def _add_budget_rollover(db):
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(budgets)")}
+    if "rollover" not in columns:
+        db.execute("ALTER TABLE budgets ADD COLUMN rollover INTEGER NOT NULL DEFAULT 0")
+
+
+def _add_subscription_flag(db):
+    columns = {row["name"] for row in db.execute("PRAGMA table_info(recurring_rules)")}
+    if "is_subscription" not in columns:
+        db.execute("ALTER TABLE recurring_rules ADD COLUMN is_subscription INTEGER NOT NULL DEFAULT 0")
 
 
 def _add_recurring_visual_mode(db):
@@ -77,7 +128,7 @@ def _add_transaction_amount_eur(db):
 
 def _backfill_transaction_amount_eur(db):
     columns = {row["name"] for row in db.execute("PRAGMA table_info(transactions)").fetchall()}
-    if "amount_eur" not in columns:
+    if "amount_eur_minor" in columns or "amount_eur" not in columns:
         return
 
     rows = db.execute(
@@ -93,6 +144,19 @@ def _backfill_transaction_amount_eur(db):
             (to_eur(row["amount"], row["currency"] or "EUR"), row["id"]),
         )
     db.commit()
+
+
+def _add_scheduling_and_rates(db):
+    for column in ("exchange_rate TEXT", "exchange_rate_date TEXT", "exchange_rate_source TEXT"):
+        db.execute(f"ALTER TABLE transactions ADD COLUMN {column}")
+    db.execute("""CREATE TABLE recurring_occurrences (
+        recurring_rule_id INTEGER NOT NULL REFERENCES recurring_rules(id) ON DELETE CASCADE,
+        due_date TEXT NOT NULL,
+        PRIMARY KEY(recurring_rule_id, due_date)
+    )""")
+    db.execute("INSERT OR IGNORE INTO recurring_occurrences SELECT recurring_rule_id, date FROM transactions WHERE recurring_rule_id IS NOT NULL")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_recurring_date ON transactions(recurring_rule_id, date)")
+    db.execute("CREATE INDEX IF NOT EXISTS idx_transactions_status_date ON transactions(status, date)")
 
 
 def _fix_nexi_prepaid_account(db):

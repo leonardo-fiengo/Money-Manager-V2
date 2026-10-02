@@ -185,12 +185,20 @@ section.dashboard-lists:not(.metrics) { padding: 0; border: 0; background: trans
 .quiet-button { border-color: transparent; }
 .quiet-button:hover, .secondary-button:hover { background: var(--accent-soft); color: var(--accent-hover); border-color: transparent; }
 .transaction-form { max-width: 940px; margin: 0 auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 26px 24px; padding: 32px; }
-.transaction-form .field-amount { grid-column: 1 / 3; grid-row: 1; }
-.transaction-form .field-type { grid-column: 3; grid-row: 1; }
-.transaction-form .field-account { grid-column: 1 / 3; grid-row: 2; }
-.transaction-form .field-date { grid-column: 3; grid-row: 2; }
+.transaction-form .transaction-kind { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; }
+.transaction-kind legend { margin-bottom: 9px; color: var(--muted); font-size: 13px; font-weight: 550; }
+.transaction-kind-option { position: relative; display: inline-flex !important; align-items: center; gap: 8px; width: auto; min-height: 40px; margin: 0 !important; padding: 8px 13px; border: 1px solid var(--line-strong); border-radius: 999px; background: #fff; color: var(--muted); cursor: pointer; font-size: 13px; font-weight: 550; }
+.transaction-kind-option:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.transaction-kind-option:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.transaction-kind-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.transaction-kind-option > span { font-size: 16px; line-height: 1; }
+.transaction-form .field-amount { grid-column: 1 / 3; }
+.transaction-form .field-account { grid-column: 1 / 3; }
+.transaction-form .field-date { grid-column: 3; }
 .transaction-form .field-destination { grid-column: 1 / -1; }
 .transaction-form .field-description { grid-column: span 1; }
+.transaction-form .future-payment-note { grid-column: 1 / -1; }
+.future-payment-note { margin: 0; padding: 10px 13px; border-radius: 11px; background: var(--accent-soft); color: var(--accent); font-size: 13px; }
 .transaction-form .field-amount input { font-size: 30px; font-weight: 500; padding: 14px; }
 .transaction-form .field-amount .amount-control { background: #f7faf8; }
 .transaction-form .field-amount input, .transaction-form .field-amount select { background: transparent; }
@@ -266,7 +274,7 @@ progress::-webkit-progress-value { background: var(--accent); border-radius: 10p
     .topbar-inner { padding: 12px 14px; }
     .transaction-form { grid-template-columns: 1fr 1fr; padding: 22px; gap: 20px 16px; }
     .transaction-form .field-amount, .transaction-form .field-account { grid-column: 1 / -1; grid-row: auto; }
-    .transaction-form .field-date, .transaction-form .field-type { grid-column: auto; grid-row: auto; }
+    .transaction-form .field-date { grid-column: auto; grid-row: auto; }
     .transaction-form .field-description { grid-column: 1 / -1; }
     .form-footer > span { display: none; }
     .form-footer { justify-content: stretch; }

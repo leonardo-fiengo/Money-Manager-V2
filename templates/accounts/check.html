@@ -1,11 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-title"><div><p class="eyebrow">A little peace of mind</p><h1>Check balances</h1></div><a class="quiet-button" href="{{ url_for('accounts.index') }}">Back to accounts</a></div>
+<div class="page-title"><div><p class="eyebrow">A little peace of mind</p><h1>Check balances</h1></div></div>
 <p class="page-intro">Count your cash and enter your bank or card's booked balance, before pending holds. Leave any account you don't want to check blank. All balances are in EUR; money owed on a credit card is negative.</p>
 {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+{% if request.args.get('matched') == '1' %}<div class="reconcile-success" role="status"><span class="reconcile-check" aria-hidden="true">✓</span><div><strong>Everything matches</strong><p>Your balances are aligned. Last checked just now.</p></div></div>{% endif %}
 {% if not rows %}
-<form method="post" class="balance-form">
-    <div class="balance-grid">
+<form method="post" class="balance-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label>Statement through date<input type="date" name="through_date" value="{{ values.get('through_date',today_iso()) }}" max="{{ today_iso() }}"></label><p class="field-help">Comparison uses booked activity through this date. The account cards below show current balances.</p><div class="balance-grid">
     {% for account in accounts if account.is_active %}
     <article class="balance-card">
         <div class="balance-card-heading">{% if account.logo %}<img class="account-logo" src="{{ account.logo }}" alt="">{% endif %}<h2>{{ account.name }}</h2></div>
@@ -18,15 +19,16 @@
     <div class="dialog-actions"><button>Compare balances</button></div>
 </form>
 {% else %}
-<form method="post" class="reconcile-preview">
+<form method="post" class="reconcile-preview"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <input type="hidden" name="action" value="save"><input type="hidden" name="token" value="{{ token }}">
     <div class="balance-grid">
     {% for row in rows %}
     <article class="balance-card {{ 'is-matched' if not row.difference else 'has-difference' }}">
-        <h2>{{ row.name }}</h2>
+        <h2>{{ row.name }}</h2><p class="field-help">Through {{ row.through_date|display_date }}</p>
         <dl class="balance-comparison"><div><dt>In the app</dt><dd>€{{ '%.2f'|format(row.balance) }}</dd></div><div><dt>Actual</dt><dd>€{{ '%.2f'|format(row.actual) }}</dd></div></dl>
         <p class="difference-label">{% if not row.difference %}✓ All matched{% else %}€{{ '%.2f'|format(row.difference|abs) }} {{ 'more' if row.difference > 0 else 'less' }} than recorded{% endif %}</p>
         {% if row.hints %}<ul class="balance-hints">{% for hint in row.hints %}<li>{{ hint }}</li>{% endfor %}</ul>{% endif %}
+        {% if row.candidates %}<p class="field-help">These entries equal the difference. Compare them with your statement:</p><ul class="balance-hints">{% for tx in row.candidates %}<li><a href="{{ url_for('transactions.details',transaction_id=tx.id) }}">{{ tx.date }} · {{ tx.description or tx.type|title }} · {{ tx.amount_eur|money }}{{ ' · Possible duplicate' if tx.possible_duplicate else '' }}</a> · <a href="{{ url_for('transactions.edit',transaction_id=tx.id) }}">Correct entry</a></li>{% endfor %}</ul>{% endif %}
         {% if row.difference %}<a href="{{ url_for('transactions.index', account_id=row.id) }}" target="_blank" rel="noopener">Review transactions ↗</a>
         <label class="check adjustment-choice"><input type="checkbox" name="adjust" value="{{ row.id }}"> Record a {{ '%+.2f'|format(row.difference) }} EUR adjustment</label>{% endif %}
     </article>
@@ -40,4 +42,4 @@
 <div class="table-scroll"><table><tr><th>Date</th><th>Account</th><th>App</th><th>Actual</th><th>Adjustment</th><th>Result / note</th></tr>
 {% for row in history %}<tr><td>{{ row.created_at }}</td><td>{{ row.account_name }}</td><td>€{{ '%.2f'|format(row.expected) }}</td><td>€{{ '%.2f'|format(row.actual) }}</td><td>{{ '%+.2f'|format(row.adjustment) }} EUR</td><td>{{ 'Adjusted' if row.adjustment else ('Matched' if row.actual == row.expected else 'Unresolved') }}{% if row.note %}<small class="cell-note">{{ row.note }}</small>{% endif %}</td></tr>{% endfor %}</table></div>
 {% endif %}
-{% endblock %}
+<p><a href="{{ url_for('finance.reconciliation') }}">Review reconciliation sessions</a> &middot; <a href="{{ url_for('finance.transfers') }}">Review possible transfers</a></p>{% endblock %}

@@ -40,14 +40,48 @@ def create_app(config_object=default_config):
     app.config["DATABASE"] = Path(app.config["DATABASE"])
     app.config["MERCHANT_LOGO_DIR"] = Path(app.config["MERCHANT_LOGO_DIR"])
 
+    @app.template_filter("money")
+    def format_money(value):
+        return f"€{float(value or 0):,.2f}"
+
+    @app.template_filter("display_date")
+    def format_date(value, pattern="%d %b %Y"):
+        from datetime import date
+        try:
+            return date.fromisoformat(str(value)[:10]).strftime(pattern)
+        except (ValueError, TypeError):
+            return value or ""
+
     @app.context_processor
     def asset_versions():
         return {"asset_version": lambda filename: (resource_dir / "static" / filename).stat().st_mtime_ns}
 
+    @app.context_processor
+    def quick_add_options():
+        from money_manager.services.preferences import payment_accounts
+        from money_manager.services.categories import list_categories
+        from money_manager.services.merchants import list_merchants
+        from money_manager.utils.dates import today_iso
+        return {"quick_accounts": payment_accounts(), "quick_categories": list_categories(), "quick_merchants": list_merchants(), "today_iso": today_iso}
+
     app.config["DATA_DIR"].mkdir(parents=True, exist_ok=True)
     _prepare_merchant_logos(resource_dir, app.config["MERCHANT_LOGO_DIR"])
     app.teardown_appcontext(close_db)
+    from money_manager.security import init_security
+    init_security(app)
+    with app.app_context():
+        from money_manager.services.backup import create_snapshot
+        create_snapshot()
     ensure_database(app)
+    with app.app_context():
+        from money_manager.services.scheduling import process_scheduled
+        process_scheduled()
+        from money_manager.services.history import capture_net_worth
+        capture_net_worth()
+
+    @app.cli.command("process-scheduled")
+    def process_scheduled_command():
+        process_scheduled()
 
     @app.get("/health")
     def health():
@@ -62,15 +96,19 @@ def create_app(config_object=default_config):
     from money_manager.routes.api import bp as api_bp
     from money_manager.routes.backup import bp as backup_bp
     from money_manager.routes.budgets import bp as budgets_bp
+    from money_manager.routes.calendar import bp as calendar_bp
     from money_manager.routes.categories import bp as categories_bp
     from money_manager.routes.dashboard import bp as dashboard_bp
     from money_manager.routes.forecast import bp as forecast_bp
     from money_manager.routes.loans import bp as loans_bp
+    from money_manager.routes.inbox import bp as inbox_bp
     from money_manager.routes.merchants import bp as merchants_bp
     from money_manager.routes.pending import bp as pending_bp
     from money_manager.routes.paypal_transfer import bp as paypal_transfer_bp
     from money_manager.routes.recurring import bp as recurring_bp
     from money_manager.routes.transactions import bp as transactions_bp
+    from money_manager.routes.settings import bp as settings_bp
+    from money_manager.routes.finance import bp as finance_bp
 
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(transactions_bp)
@@ -83,8 +121,12 @@ def create_app(config_object=default_config):
     app.register_blueprint(analytics_bp)
     app.register_blueprint(forecast_bp)
     app.register_blueprint(loans_bp)
+    app.register_blueprint(inbox_bp)
     app.register_blueprint(budgets_bp)
+    app.register_blueprint(calendar_bp)
     app.register_blueprint(backup_bp)
     app.register_blueprint(api_bp)
+    app.register_blueprint(settings_bp)
+    app.register_blueprint(finance_bp)
 
     return app

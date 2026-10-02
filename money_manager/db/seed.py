@@ -15,7 +15,7 @@ def seed_defaults():
     for name, account_type, logo, opening_balance, _, settlement_day in DEFAULT_ACCOUNTS:
         db.execute(
             """
-            INSERT OR IGNORE INTO accounts (name, type, logo, opening_balance, settlement_day)
+            INSERT OR IGNORE INTO accounts (name, type, logo, opening_balance_minor, settlement_day)
             VALUES (?, ?, ?, ?, ?)
             """,
             (name, account_type, logo, opening_balance, settlement_day),
