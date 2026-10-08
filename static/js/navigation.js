@@ -24,7 +24,8 @@
             const index = trail.lastIndexOf(current);
             if (index !== -1) trail = trail.slice(0, index + 1);
         }
-        if (trail.at(-1) !== current) trail.push(current);
+        if (trail.at(-1)?.split('?')[0] === window.location.pathname) trail[trail.length - 1] = current;
+        else if (trail.at(-1) !== current) trail.push(current);
         trail = trail.slice(-100);
         try { sessionStorage.setItem(storageKey, JSON.stringify(trail)); } catch (_) {}
 
@@ -34,7 +35,12 @@
 
         // Once the trail is exhausted, use the parent page. The referrer may
         // be the page we just returned from and would send the user in a loop.
-        const target = trail.at(-2) || fallback;
+        const previous = trail.at(-2);
+        // A successful save redirects away from its editor. Return to the
+        // parent page instead of offering to create the same record again.
+        const previousWasEditor = previous && /\/(?:new|edit)(?:\?|$)/.test(previous);
+        const currentIsEditor = /\/(?:new|edit)(?:\?|$)/.test(current);
+        const target = previousWasEditor && !currentIsEditor ? fallback : previous || fallback;
         back.setAttribute('href', target);
         const disabled = target === current;
         if (disabled) {

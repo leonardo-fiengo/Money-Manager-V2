@@ -1,0 +1,60 @@
+/* Shared tokens: one definition per theme. */
+:root {
+    --bg: #f5f8f6;
+    --panel: #ffffff;
+    --panel-soft: #edf3ef;
+    --text: #20362b;
+    --muted: #6d8276;
+    --line: #e2ebe5;
+    --line-strong: #cbd9d0;
+    --shadow: none;
+    --accent: #16785a;
+    --accent-hover: #0f6147;
+    --accent-soft: #e3f2e9;
+    --danger: #bd4e51;
+    --danger-hover: #a84222;
+    --danger-soft: #fde2df;
+    --blue: #5175bd;
+    --amber: #c79538;
+    --highlight: #edf7f0;
+    --radius: 18px;
+    --space: 24px;
+    --status-good: #16785a;
+    --status-review: #a66b16;
+    --status-action: #bd4e51;
+    --status-info: #4479ba;
+    --mint-soft: #e4f5ee;
+    --rose-soft: #ffe9ec;
+    --sky-soft: #e4f1ff;
+    --lavender-soft: #f0eafe;
+    --lavender: #8060c1;
+}
+html[data-theme=dark] {
+    color-scheme: dark;
+    --bg: #070d16;
+    --panel: #0b1521;
+    --panel-soft: #101d2c;
+    --text: #f1f5f9;
+    --muted: #a0afc1;
+    --line: #1d3041;
+    --line-strong: #30495e;
+    --accent: #25d3c3;
+    --accent-hover: #68e7dc;
+    --accent-soft: #12302e;
+    --danger-soft: #30202b;
+    --highlight: #101d2c;
+    --danger: #f06470;
+    --shadow: none;
+    --status-good: #26d9a0;
+    --status-review: #e8ae52;
+    --status-action: #f06470;
+    --status-info: #39afff;
+    --blue: #39afff;
+    --amber: #e8ae52;
+    --mint-soft: #103129;
+    --rose-soft: #30202b;
+    --sky-soft: #102b42;
+    --lavender-soft: #28243b;
+    --lavender: #aaa0ef;
+    --radius: 13px;
+}

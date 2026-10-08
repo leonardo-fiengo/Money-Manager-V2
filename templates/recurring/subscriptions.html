@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-{% include "_recurring_tabs.html" %}
+{% include "_insight_tabs.html" %}
+
 <div class="page-title"><div><p class="eyebrow">Repeat spending</p><h1>Subscriptions</h1></div><a class="secondary-button" href="{{ url_for('recurring.index') }}">All recurring</a></div>
 <section class="subscription-summary"><span>Estimated monthly cost</span><strong>€{{ '%.2f'|format(monthly_total) }}</strong><small>From active recurring expenses marked as subscriptions.</small></section>
 <div class="subscription-list">{% for rule in subscriptions %}<a href="{{ url_for('recurring.edit', rule_id=rule.id) }}" class="subscription-row"><span class="transaction-feed-icon transaction-feed-fallback">{{ rule.name[:1] }}</span><span><strong>{{ rule.name }}</strong><small>{{ rule.frequency|title }} · Next {{ rule.next_due_date|display_date }}</small><small>{{ rule.currency }} {{ '%.2f'|format(rule.annual_cost) }}/year{% if rule.latest %} &middot; Last charged {{ rule.currency }} {{ '%.2f'|format(rule.latest.amount) }} on {{ rule.latest.date|display_date }}{% if rule.latest.amount_minor!=rule.amount_minor %} &middot; Price changed from {{ '%.2f'|format(rule.amount) }} to {{ '%.2f'|format(rule.latest.amount) }}{% endif %}{% endif %}</small></span><strong>{{ rule.currency }} {{ '%.2f'|format(rule.amount) }}<small>{{ rule.currency }} {{ '%.2f'|format(rule.monthly_cost) }}/month</small></strong></a>{% else %}<p class="empty-state">No active subscriptions yet. Add a recurring payment to track one.</p>{% endfor %}</div>

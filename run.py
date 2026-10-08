@@ -9,7 +9,8 @@ import webbrowser
 
 from werkzeug.serving import make_server
 
-from money_manager import create_app
+import config
+from money_manager import create_app, installation_id
 
 
 HOST = "127.0.0.1"
@@ -27,7 +28,11 @@ def money_manager_is_running():
     try:
         with urllib.request.urlopen(f"{APP_URL}/health", timeout=1) as response:
             payload = json.loads(response.read())
-            return response.status == 200 and payload == {"app": "money-manager", "status": "ok"}
+            return (
+                response.status == 200
+                and payload == {"app": "money-manager", "status": "ok"}
+                and response.headers.get("X-Money-Manager-Installation") == installation_id()
+            )
     except (OSError, ValueError, urllib.error.URLError):
         return False
 
@@ -50,7 +55,11 @@ if __name__ == "__main__":
             if browser_enabled():
                 webbrowser.open(APP_URL)
             raise SystemExit(0)
-        raise SystemExit("Port 5000 is already in use by another program. Close it, then start Money Manager again.")
+        raise SystemExit(
+            "Port 5000 is already in use by another app or an older Money Manager installation. "
+            "Close the existing Money Manager window or desktop app, then start this launcher again.\n"
+            f"This installation: {config.APP_DIR}"
+        )
 
     app = create_app()
     from money_manager.services.scheduling import start_scheduler
@@ -59,6 +68,7 @@ if __name__ == "__main__":
     if browser_enabled():
         threading.Thread(target=open_browser_when_ready, daemon=True).start()
     print(f"Money Manager is running at {APP_URL}")
+    print(f"Installation: {config.APP_DIR}")
     print("Keep this window open. Press Ctrl+C to stop Money Manager.")
     try:
         server.serve_forever()

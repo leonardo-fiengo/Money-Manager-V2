@@ -29,6 +29,12 @@ def list_transactions(filters=None, include_pending=False, limit=None, offset=0,
     params = []
     if not include_pending:
         where.append("t.status = 'posted'")
+    if filters.get('view') == 'pending':
+        where.append("t.status = 'pending'")
+    if filters.get('view') == 'review':
+        where.append("((t.category IS NULL AND t.type='expense' AND EXISTS (SELECT 1 FROM transaction_import_hashes h WHERE h.transaction_id=t.id)) OR t.exchange_rate_source='estimated')")
+    if filters.get('view') == 'imports':
+        where.append('EXISTS (SELECT 1 FROM transaction_import_hashes h WHERE h.transaction_id=t.id)')
     if filters.get("type"):
         where.append("t.type = ?")
         params.append(filters["type"])
@@ -48,14 +54,16 @@ def list_transactions(filters=None, include_pending=False, limit=None, offset=0,
         tokens = re.findall(r"\w+", filters['search'], flags=re.UNICODE)
         if tokens:
             expression = ' AND '.join('"' + token + '"*' for token in tokens[:12])
-            where.append("t.id IN (SELECT rowid FROM transaction_search WHERE transaction_search MATCH ?)")
-            params.append(expression)
+            where.append("(t.id IN (SELECT rowid FROM transaction_search WHERE transaction_search MATCH ?) OR person.name LIKE ?)")
+            params.extend([expression,f"%{filters['search']}%"])
         else:
             where.append("(t.description LIKE ? OR t.notes LIKE ?)")
             params.extend([f"%{filters['search']}%"]*2)
     if filters.get("tag"):
         where.append("EXISTS (SELECT 1 FROM transaction_tags tags WHERE tags.transaction_id = t.id AND tags.tag = ?)")
         params.append(filters["tag"])
+    if filters.get('contact_id'):
+        where.append('t.contact_id=?'); params.append(filters['contact_id'])
     for key, operator in (("start", ">="), ("end", "<=")):
         if filters.get(key):
             where.append(f"t.date {operator} ?")
@@ -65,6 +73,7 @@ def list_transactions(filters=None, include_pending=False, limit=None, offset=0,
         SELECT t.*, a.name AS account_name, a.logo AS account_logo,
                d.name AS destination_account_name, d.logo AS destination_account_logo,
                m.name AS merchant_name, m.logo AS merchant_logo,
+               person.name AS contact_name,
                c.icon AS category_icon, c.color AS category_color,
                (SELECT group_concat(tag, ', ') FROM transaction_tags tags WHERE tags.transaction_id = t.id) AS tags,
                l.kind AS link_kind, original.description AS linked_expense_description
@@ -72,6 +81,7 @@ def list_transactions(filters=None, include_pending=False, limit=None, offset=0,
         JOIN accounts a ON a.id = t.account_id
         LEFT JOIN accounts d ON d.id = t.destination_account_id
         LEFT JOIN merchants m ON m.id = t.merchant_id
+        LEFT JOIN contacts person ON person.id = t.contact_id
         LEFT JOIN categories c ON c.name = t.category
         LEFT JOIN transaction_links l ON l.related_transaction_id = t.id
         LEFT JOIN transactions original ON original.id = l.source_transaction_id
@@ -135,7 +145,7 @@ def _insert_transaction(data, create_settlement=True):
     )
     transaction_id = cursor.lastrowid
     db.execute("UPDATE transactions SET exchange_rate = ?, exchange_rate_date = ?, exchange_rate_source = ? WHERE id = ?", (quote["rate"], quote["date"], quote["source"], transaction_id))
-    db.execute('UPDATE transactions SET is_subscription=? WHERE id=?',(int(bool(_value(data,'is_subscription',False))),transaction_id))
+    db.execute('UPDATE transactions SET is_subscription=?, contact_id=? WHERE id=?',(int(bool(_value(data,'is_subscription',False))),_value(data,'contact_id'),transaction_id))
 
     if create_settlement and _value(data, "type") == "expense" and _value(data, "status", "posted") == "posted":
         _create_credit_card_settlement(db, transaction_id, dict(data, amount_eur=amount_eur))
@@ -149,6 +159,10 @@ def update_transaction(transaction_id, data):
 
 
 def _update_transaction(transaction_id, data):
+    data = dict(data)
+    existing = get_transaction(transaction_id)
+    if existing and 'contact_id' not in data:
+        data['contact_id'] = None if data.get('merchant_id') or data.get('type')=='transfer' else existing['contact_id']
     _validate_transaction_data(data)
     currency = (_value(data, "currency", "EUR") or "EUR").upper()
     amount = money_value(_value(data, "amount"))
@@ -213,6 +227,7 @@ def _update_transaction(transaction_id, data):
         if _value(data, "type") != old["type"]:
             db.execute("DELETE FROM transaction_links WHERE source_transaction_id = ? OR related_transaction_id = ?", (transaction_id, transaction_id))
         db.execute("UPDATE transactions SET exchange_rate = ?, exchange_rate_date = ?, exchange_rate_source = ? WHERE id = ?", (quote["rate"], quote["date"], quote["source"], transaction_id))
+        db.execute('UPDATE transactions SET contact_id=? WHERE id=?',(_value(data,'contact_id'),transaction_id))
         _sync_pending_settlement(db, transaction_id, data, amount_eur)
         if _value(data,'merchant_id') and _value(data,'merchant_id')!=old['merchant_id'] and old['description'] and len(old['description'])<=500:
             from money_manager.services.rules import save_alias
@@ -307,6 +322,12 @@ def restore_transaction(trash_id):
 
 
 def _validate_transaction_data(data):
+    from money_manager.services.contacts import get_contact
+    contact_id = _value(data,'contact_id')
+    if contact_id:
+        if not get_contact(contact_id): raise ValueError('Choose an existing contact.')
+        if _value(data,'merchant_id'): raise ValueError('Choose either a merchant or a contact.')
+        if _value(data,'type')=='transfer': raise ValueError('Transfers move money between your accounts; use a payment for a contact.')
     tx_type = _value(data, "type")
     status = _value(data, "status", "posted")
     amount = money_value(_value(data, "amount") or 0)

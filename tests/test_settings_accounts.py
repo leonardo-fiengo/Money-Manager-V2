@@ -45,7 +45,7 @@ class SettingsAccountsTest(unittest.TestCase):
         page = self.client.get("/accounts/").text
         self.assertIn("€12.34", page)
         self.assertIn("Across 1 active account", page)
-        self.assertIn("Inactive accounts", page)
+        self.assertIn("Archived accounts", page)
         self.assertIn(f"/accounts/{old}/edit", page)
         self.assertIn(f"account_id={old}", page)
 
@@ -69,7 +69,7 @@ class SettingsAccountsTest(unittest.TestCase):
         self.assertEqual(self.client.post("/settings/", data=dict(mode="auto")).status_code, 400)
         get_db().execute("UPDATE accounts SET is_active = 0")
         get_db().commit()
-        page = self.client.get("/settings/")
+        page = self.client.get("/settings/payments")
         self.assertEqual(page.status_code, 200)
         self.assertIn("Add an active account", page.text)
         self.assertIn("No active accounts yet", self.client.get("/accounts/").text)

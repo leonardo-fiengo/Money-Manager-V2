@@ -1,3 +1,5 @@
+import hashlib
+import os
 import shutil
 import sys
 from pathlib import Path
@@ -7,6 +9,12 @@ from flask import Flask, jsonify, send_from_directory
 import config as default_config
 from money_manager.db.connection import close_db
 from money_manager.db.migration import ensure_database
+
+
+def installation_id():
+    """Identify this installation without exposing its local path over HTTP."""
+    folder = os.path.normcase(str(default_config.APP_DIR.resolve()))
+    return hashlib.sha256(folder.encode("utf-8")).hexdigest()
 
 
 def _resource_dir():
@@ -53,6 +61,11 @@ def create_app(config_object=default_config):
             return value or ""
 
     @app.context_processor
+    def profile_context():
+        from money_manager.services.profile import local_profile
+        return {"local_profile":local_profile()}
+
+    @app.context_processor
     def asset_versions():
         return {"asset_version": lambda filename: (resource_dir / "static" / filename).stat().st_mtime_ns}
 
@@ -61,8 +74,9 @@ def create_app(config_object=default_config):
         from money_manager.services.preferences import payment_accounts
         from money_manager.services.categories import list_categories
         from money_manager.services.merchants import list_merchants
+        from money_manager.services.contacts import list_contacts
         from money_manager.utils.dates import today_iso
-        return {"quick_accounts": payment_accounts(), "quick_categories": list_categories(), "quick_merchants": list_merchants(), "today_iso": today_iso}
+        return {"quick_accounts": payment_accounts(), "quick_categories": list_categories(), "quick_merchants": list_merchants(), "quick_contacts":list_contacts(), "today_iso": today_iso}
 
     app.config["DATA_DIR"].mkdir(parents=True, exist_ok=True)
     _prepare_merchant_logos(resource_dir, app.config["MERCHANT_LOGO_DIR"])
@@ -85,7 +99,9 @@ def create_app(config_object=default_config):
 
     @app.get("/health")
     def health():
-        return jsonify(app="money-manager", status="ok")
+        response = jsonify(app="money-manager", status="ok")
+        response.headers["X-Money-Manager-Installation"] = installation_id()
+        return response
 
     @app.get("/static/uploads/merchants/<path:filename>")
     def merchant_logo(filename):
@@ -128,5 +144,15 @@ def create_app(config_object=default_config):
     app.register_blueprint(api_bp)
     app.register_blueprint(settings_bp)
     app.register_blueprint(finance_bp)
+    from money_manager.routes.plan import bp as plan_bp
+    from money_manager.routes.profile import bp as profile_bp
+    app.register_blueprint(plan_bp)
+    app.register_blueprint(profile_bp)
+    from money_manager.routes.contacts import bp as contacts_bp
+    from money_manager.routes.taxes import bp as taxes_bp
+    from money_manager.routes.debts import bp as debts_bp
+    app.register_blueprint(contacts_bp)
+    app.register_blueprint(taxes_bp)
+    app.register_blueprint(debts_bp)
 
     return app

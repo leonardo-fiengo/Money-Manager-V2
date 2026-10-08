@@ -1,5 +1,6 @@
 (() => {
-    const privacyButton = document.querySelector('[data-balance-privacy]');
+    const privacyButtons = document.querySelectorAll('[data-balance-privacy]');
+    const privateText = new WeakMap();
     let hidden = document.documentElement.dataset.balancesHidden === 'true';
     const currencyPattern = /(?:[+−-]?\s*(?:€|\$|£|EUR\s|USD\s|GBP\s|CHF\s)\s*\d[\d,]*(?:\.\d{1,2})?|[+−-]?\d[\d,]*(?:\.\d{1,2})?\s*€|[−-]?\d+(?:\.\d+)?%)/g;
     function markPrivateText() {
@@ -30,21 +31,39 @@
     function updatePrivacy() {
         privacyObserver.disconnect();
         markPrivateText();
+        const visited = new Set();
         document.querySelectorAll('[data-private-balance]').forEach(element => {
-            if (!element.dataset.realBalance) element.dataset.realBalance = element.textContent;
-            const next = hidden ? '••••' : element.dataset.realBalance;
-            if (element.textContent !== next) element.textContent = next;
-            if (hidden) element.setAttribute('aria-label', 'Amount hidden'); else element.removeAttribute('aria-label');
+            // Mask text nodes, preserving child elements, sizes, and labels.
+            const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+            while (walker.nextNode()) {
+                const node = walker.currentNode;
+                if (visited.has(node)) continue;
+                visited.add(node);
+                let saved = privateText.get(node);
+                if (!saved || node.data !== saved.rendered) saved = {real: node.data};
+                currencyPattern.lastIndex = 0;
+                const hasAmount = currencyPattern.test(saved.real);
+                currencyPattern.lastIndex = 0;
+                const explicitLeaf = node.parentElement.matches('[data-private-balance]') && !node.parentElement.childElementCount;
+                if (!hasAmount && (!explicitLeaf || !saved.real.trim())) continue;
+                const next = hidden ? (hasAmount ? saved.real.replace(currencyPattern, '••••') : '••••') : saved.real;
+                if (node.data !== next) node.data = next;
+                saved.rendered = next;
+                privateText.set(node, saved);
+            }
+            if (!element.childElementCount) {
+                if (hidden) element.setAttribute('aria-label', 'Amount hidden'); else element.removeAttribute('aria-label');
+            }
         });
         document.documentElement.dataset.balancesHidden = String(hidden);
         document.querySelectorAll('[data-privacy-setting]').forEach(input => { input.checked = hidden; });
         document.querySelectorAll('canvas').forEach(canvas => { canvas.setAttribute('aria-hidden', String(hidden)); });
-        if (privacyButton) {
+        privacyButtons.forEach(privacyButton => {
             privacyButton.setAttribute('aria-label', hidden ? 'Show balances' : 'Hide balances');
             privacyButton.setAttribute('aria-pressed', String(hidden));
             privacyButton.title = hidden ? 'Show balances' : 'Hide balances';
             privacyButton.innerHTML = `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>${hidden ? '<path d="M3 3l18 18"/>' : ''}</svg>`;
-        }
+        });
         privacyObserver.observe(document.querySelector('main'), {subtree:true, childList:true, characterData:true});
     }
     const privacyObserver = new MutationObserver(() => updatePrivacy());
@@ -53,7 +72,7 @@
         try { localStorage.setItem('money-manager-hide-balance', hidden ? '1' : '0'); } catch (_) {}
         updatePrivacy();
     }
-    privacyButton?.addEventListener('click', togglePrivacy);
+    privacyButtons.forEach(button => button.addEventListener('click', togglePrivacy));
     document.querySelectorAll('[data-privacy-setting]').forEach(input => input.addEventListener('change', togglePrivacy));
     updatePrivacy();
     document.querySelectorAll('[data-budget-suggestion]').forEach(button => button.addEventListener('click', () => {
@@ -88,36 +107,76 @@
     const palette = document.querySelector('[data-command-palette]');
     const commandInput = palette?.querySelector('[data-command-input]');
     const items = Array.from(palette?.querySelectorAll('[data-command-item]') || []);
+    const commandSearch = palette?.querySelector('[data-command-search]');
+    const visibleCommands = () => items.filter(item => !item.hidden).concat(commandSearch && !commandSearch.hidden ? [commandSearch] : []);
     function filterCommands() {
         const query = commandInput.value.trim().toLowerCase();
-        items.forEach((item) => { item.hidden = !item.textContent.toLowerCase().includes(query); });
-        let searchLink = palette.querySelector('[data-command-search]');
-        if (query && !items.some((item) => !item.hidden)) {
-            if (!searchLink) {
-                searchLink = document.createElement('a');
-                searchLink.dataset.commandSearch = '';
-                palette.querySelector('.command-results').appendChild(searchLink);
-            }
-            searchLink.href = `/transactions/?search=${encodeURIComponent(commandInput.value.trim())}`;
-            searchLink.textContent = `Search transactions for “${commandInput.value.trim()}”`;
-            searchLink.hidden = false;
-        } else if (searchLink) searchLink.hidden = true;
+        const words = query.split(/\s+/).filter(Boolean);
+        items.forEach(item => {
+            const text = `${item.textContent} ${item.dataset.commandKeywords || ''}`.toLowerCase();
+            item.hidden = !words.every(word => text.includes(word));
+        });
+        palette.querySelectorAll('[data-command-group]').forEach(group => {
+            group.hidden = !group.querySelector('[data-command-item]:not([hidden])');
+        });
+        const count = items.filter(item => !item.hidden).length;
+        const fallback = Boolean(query && !count);
+        commandSearch.hidden = !fallback;
+        palette.querySelector('[data-command-no-match]').hidden = !fallback;
+        if (fallback) {
+            commandSearch.href = `/transactions/?search=${encodeURIComponent(commandInput.value.trim())}`;
+            commandSearch.querySelector('[data-command-search-label]').textContent = `Search transactions for “${commandInput.value.trim()}”`;
+        }
+        palette.querySelector('[data-command-count]').textContent = query ? `${count} matching ${count === 1 ? 'page' : 'pages'}` : `${count} destinations`;
     }
     commandInput?.addEventListener('input', filterCommands);
+    function openCommands() {
+        if (!palette) return;
+        commandInput.value = '';
+        filterCommands();
+        palette.showModal();
+        palette.querySelector('.command-results').scrollTop = 0;
+        commandInput.focus();
+    }
+    document.querySelectorAll('[data-open-command]').forEach(button => button.addEventListener('click',openCommands));
     document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && palette?.open) {
+            event.preventDefault();
+            palette.close();
+        }
         if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
             event.preventDefault();
-            if (palette?.open) palette.close(); else { palette?.showModal(); commandInput?.focus(); }
+            if (palette?.open) palette.close(); else openCommands();
         }
-        if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.altKey && !event.metaKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !palette?.open) togglePrivacy();
+        if (event.key.toLowerCase() === 'b' && !event.ctrlKey && !event.altKey && !event.metaKey && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName) && !document.activeElement?.isContentEditable && !palette?.open) togglePrivacy();
     });
     commandInput?.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
-            const first = palette.querySelector('[data-command-item]:not([hidden]), [data-command-search]:not([hidden])');
+            const first = visibleCommands()[0];
             if (first) { event.preventDefault(); window.location.href = first.href; }
+        } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            event.preventDefault();
+            const choices = visibleCommands();
+            (event.key === 'ArrowDown' ? choices[0] : choices.at(-1))?.focus();
         }
     });
-    palette?.addEventListener('click', (event) => { if (event.target === palette) palette.close(); });
+    palette?.addEventListener('keydown', event => {
+        const current = event.target.closest('[data-command-item], [data-command-search]');
+        if (!current || !['ArrowDown','ArrowUp','ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+        event.preventDefault();
+        const choices = visibleCommands(), index = choices.indexOf(current);
+        const grid = current.closest('.command-group-grid');
+        const columns = grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 1;
+        let next = index + ({ArrowDown:columns, ArrowUp:-columns, ArrowLeft:-1, ArrowRight:1}[event.key] || 0);
+        if (event.key === 'Home') next = 0;
+        if (event.key === 'End') next = choices.length - 1;
+        if (next < 0) commandInput.focus(); else choices[Math.min(next,choices.length - 1)]?.focus();
+    });
+    palette?.querySelector('[data-command-close]').addEventListener('click', () => palette.close());
+    palette?.addEventListener('click', event => {
+        const bounds = palette.getBoundingClientRect();
+        if (event.target === palette && (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom)) palette.close();
+    });
 
     const brand = document.querySelector('.app-sidebar .brand');
     let logoClicks = 0, logoTimer;

@@ -46,7 +46,9 @@
             </select>
         </span>
     </label>
-    <label>
+    <label data-payee-kind>Payee type<select name="payee_kind"><option value="merchant" {{ 'selected' if not tx or not tx.contact_id else '' }}>Merchant</option><option value="contact" {{ 'selected' if tx and tx.contact_id else '' }}>Contact</option></select></label>
+    <label data-payee-contact>Contact<select name="contact_id"><option value="">Choose a contact</option>{% for contact in contacts %}<option value="{{ contact.id }}" {{ 'selected' if tx and tx.contact_id|string==contact.id|string else '' }}>{{ contact.name }}{{ ' (archived)' if not contact.is_active else '' }}</option>{% endfor %}</select><small class="field-help"><a href="{{ url_for('contacts.index') }}">Manage contacts</a></small></label>
+    <label data-payee-merchant>
         <span>Merchant</span>
         <span class="select-with-visual">
             <span class="select-leading" aria-hidden="true"></span>
@@ -72,7 +74,7 @@
     </label>
     <label class="field-description">Description <input name="description" value="{{ (tx.description or '') if tx else '' }}" placeholder="What was it for?"></label>
     <p class="future-payment-note" data-future-note hidden>Future payment — this will stay scheduled until its date.</p>
-    <div class="form-footer"><a class="quiet-button" href="{{ url_for('transactions.index') }}">Cancel</a>{% if editing %}<a class="secondary-button" href="{{ url_for('transactions.details', transaction_id=tx.id) }}">Splits, tags &amp; refunds</a>{% endif %}<span></span>
+    <div class="form-footer"><a class="quiet-button" href="{{ url_for('transactions.details',transaction_id=tx.id,panel=1) if embedded and editing else url_for('transactions.index') }}">Cancel</a>{% if editing %}<a class="secondary-button" href="{{ url_for('transactions.details', transaction_id=tx.id,**({'panel':1} if embedded else {})) }}">Splits, tags &amp; refunds</a>{% endif %}<span></span>
         {% if not editing %}<button class="secondary-button" name="after_save" value="another">Save and add another</button>{% endif %}
         <button>Save transaction</button>
     </div>

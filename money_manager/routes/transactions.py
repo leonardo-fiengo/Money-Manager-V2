@@ -8,6 +8,7 @@ from money_manager.services.merchants import list_merchants
 from money_manager.services.categories import create_category, get_category
 from money_manager.services.merchants import create_merchant, get_merchant
 from money_manager.services.preferences import payment_accounts, payment_preference
+from money_manager.services.contacts import list_contacts, get_contact
 from money_manager.services.transactions import create_transaction, delete_transaction, get_transaction, list_transactions, update_transaction, restore_transaction
 from money_manager.services.importing import create_batch, get_batch, save_mapping, preview_batch, confirm_batch, list_rules, save_rule, delete_rule
 from money_manager.services.transaction_details import splits_for, save_splits, tags_for, save_tags, linked_expense, link_refund
@@ -18,6 +19,7 @@ from money_manager.db.connection import get_db
 import json
 from money_manager.utils.dates import today_iso
 from money_manager.utils.filters import clean_amount, empty_to_none
+from money_manager.services.activity_review import review_suggestions, categorize_review
 
 
 bp = Blueprint("transactions", __name__, url_prefix="/transactions")
@@ -26,7 +28,7 @@ bp = Blueprint("transactions", __name__, url_prefix="/transactions")
 def _context(tx=None, error=None, editing=False):
     return dict(tx=tx, error=error, editing=editing, today=today_iso(),
                 accounts=list_accounts(active_only=False) if editing else payment_accounts(),
-                merchants=list_merchants(), categories=list_categories(), preference=payment_preference())
+                merchants=list_merchants(), contacts=list_contacts(active_only=not editing), categories=list_categories(), preference=payment_preference())
 
 
 def _form_data():
@@ -39,14 +41,19 @@ def _form_data():
         "description": empty_to_none(request.form.get("description")),
         "account_id": int(request.form.get("account_id") or 0),
         "destination_account_id": int(request.form["destination_account_id"]) if request.form.get("destination_account_id") else None,
-        "merchant_id": int(request.form["merchant_id"]) if request.form.get("merchant_id") else None,
+        "merchant_id": int(request.form["merchant_id"]) if request.form.get("merchant_id") and request.form.get('payee_kind')!='contact' and request.form.get('type')!='transfer' else None,
+        "contact_id": request.form.get('contact_id',type=int) if request.form.get('payee_kind')=='contact' and request.form.get('type')!='transfer' else None,
         "status": "pending" if (request.form.get("date") or "") > today_iso() else "posted",
     }
 
 
 @bp.route("/")
 def index():
+    view = request.args.get('view', 'review' if request.args.get('needs_category') else 'all')
+    if view not in {'all', 'review', 'pending', 'transfers', 'imports', 'deleted'}:
+        view = 'all'
     filters = {
+        'view': view,
         "type": request.args.get("type"),
         "account_id": request.args.get("account_id"),
         "account_activity": request.args.get("account_activity") == '1',
@@ -54,9 +61,12 @@ def index():
         "needs_category": request.args.get("needs_category"),
         "tag": request.args.get("tag"),
         "search": request.args.get("search"),
+        "contact_id":request.args.get('contact_id',type=int),
         "start": request.args.get("start"),
         "end": request.args.get("end"),
     }
+    if view == 'transfers':
+        filters['type'] = 'transfer'
     page_size = 50
     total = list_transactions(filters, include_pending=True, count=True)
     pages = max(1, (total + page_size - 1) // page_size)
@@ -65,10 +75,18 @@ def index():
     except ValueError:
         page = 1
     transactions = list_transactions(filters, include_pending=True, limit=page_size, offset=(page - 1) * page_size)
+    if view == 'review':
+        transactions = review_suggestions(transactions)
+    deleted = []
+    if view == 'deleted':
+        for row in get_db().execute('SELECT * FROM transaction_trash WHERE restored_at IS NULL ORDER BY id DESC LIMIT 100'):
+            payload = json.loads(row['payload'])
+            deleted.append(dict(row, entries=payload if isinstance(payload, list) else payload.get('transactions', [])))
     month_labels = {tx["date"][:7]: date.fromisoformat(tx["date"]).strftime("%B %Y") for tx in transactions}
     return render_template(
         "transactions/index.html",
         transactions=transactions,
+        view=view, deleted=deleted,
         month_labels=month_labels,
         accounts=list_accounts(),
         merchants=list_merchants(),
@@ -78,6 +96,16 @@ def index():
         today=today_iso(),
         yesterday=(date.today() - timedelta(days=1)).isoformat(),
     )
+
+
+@bp.post('/review')
+def review():
+    try:
+        count = categorize_review(request.form.getlist('transaction_id'), request.form.get('category'), request.form.get('merchant_id'), bool(request.form.get('remember')))
+        flash(f'Reviewed {count} transaction(s). Your money stayed exactly where it was.', 'success')
+    except ValueError as error:
+        flash(str(error), 'error')
+    return redirect(url_for('transactions.index', view='review'))
 
 
 @bp.route("/import", methods=("GET", "POST"))
@@ -158,6 +186,10 @@ def new():
             return render_template("transactions/form.html", **_context(request.form, str(error))), 400
     account_id = request.args.get('account_id',type=int)
     preset = dict(type='expense',date=today_iso(),currency='EUR',amount='',account_id=account_id) if account_id in {a['id'] for a in list_accounts()} else None
+    contact_id = request.args.get('contact_id',type=int)
+    if contact_id in {c['id'] for c in list_contacts()}:
+        preset = preset or dict(type='expense',date=today_iso(),currency='EUR',amount='',account_id=payment_accounts()[0]['id'] if payment_accounts() else None)
+        preset['contact_id'] = contact_id
     return render_template("transactions/form.html", **_context(preset))
 
 
@@ -169,6 +201,8 @@ def edit(transaction_id):
     if request.method == "POST":
         try:
             update_transaction(transaction_id, _form_data())
+            if request.args.get('panel') == '1':
+                return redirect(url_for('transactions.details', transaction_id=transaction_id, panel=1))
             return redirect(url_for("transactions.index"))
         except ValueError as error:
             return render_template("transactions/form.html", **_context(request.form, str(error), editing=True)), 400
@@ -205,11 +239,11 @@ def details(transaction_id):
             else:
                 raise ValueError("Choose a detail to save.")
             flash("Transaction details saved.", "success")
-            return redirect(url_for("transactions.details", transaction_id=transaction_id))
+            return redirect(url_for("transactions.details", transaction_id=transaction_id, **({'panel': 1} if request.args.get('panel') == '1' else {})))
         except ValueError as exc:
             error = str(exc)
     expenses = list_transactions({"type": "expense"}, limit=100) if tx["type"] == "income" else []
-    return render_template("transactions/details.html", tx=tx, splits=splits_for(transaction_id), tags=tags_for(transaction_id), link=linked_expense(transaction_id), expenses=expenses, categories=list_categories(), attachments=attachments_for(transaction_id), relationships=relationships_for(transaction_id), error=error), (400 if error else 200)
+    return render_template("transactions/details.html", tx=tx, contact=get_contact(tx['contact_id']) if tx['contact_id'] else None, splits=splits_for(transaction_id), tags=tags_for(transaction_id), link=linked_expense(transaction_id), expenses=expenses, categories=list_categories(), attachments=attachments_for(transaction_id), relationships=relationships_for(transaction_id), error=error), (400 if error else 200)
 
 
 @bp.route("/<int:transaction_id>/delete", methods=("POST",))

@@ -32,21 +32,25 @@ def get_account(account_id):
     return get_db().execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
 
 
-def create_account(name, account_type, opening_balance=0, settlement_account_id=None, settlement_day=None, logo=None):
+def create_account(name, account_type, opening_balance=0, settlement_account_id=None, settlement_day=None, logo=None, role='auto'):
+    if role not in {'auto','everyday','savings'}:
+        raise ValueError('Choose an account role.')
     _validate_account(name, account_type, opening_balance, settlement_account_id, settlement_day)
     db = get_db()
     cursor = db.execute(
         """
-        INSERT INTO accounts (name, type, logo, opening_balance_minor, settlement_account_id, settlement_day)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO accounts (name, type, logo, opening_balance_minor, settlement_account_id, settlement_day,role)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         """,
-        (name.strip(), account_type, logo, to_minor(opening_balance), settlement_account_id, settlement_day),
+        (name.strip(), account_type, logo, to_minor(opening_balance), settlement_account_id, settlement_day,role),
     )
     db.commit()
     return cursor.lastrowid
 
 
-def update_account(account_id, name, account_type, opening_balance, settlement_account_id, settlement_day, is_active=True, logo=None):
+def update_account(account_id, name, account_type, opening_balance, settlement_account_id, settlement_day, is_active=True, logo=None, role=None):
+    if role is not None and role not in {'auto','everyday','savings'}:
+        raise ValueError('Choose an account role.')
     _validate_account(name, account_type, opening_balance, settlement_account_id, settlement_day, account_id)
     db = get_db()
     with atomic(db):
@@ -54,6 +58,8 @@ def update_account(account_id, name, account_type, opening_balance, settlement_a
         if old and old['opening_balance_minor']!=to_minor(opening_balance) and db.execute("SELECT 1 FROM reconciliation_sessions WHERE account_id=? AND status='closed'",(account_id,)).fetchone():
             raise ValueError('Reopen this account’s reconciliation sessions before changing its opening balance.')
         _save_account(db,account_id,name,account_type,opening_balance,settlement_account_id,settlement_day,is_active,logo)
+        if role is not None:
+            db.execute('UPDATE accounts SET role=? WHERE id=?',(role,account_id))
 
 
 def _save_account(db,account_id,name,account_type,opening_balance,settlement_account_id,settlement_day,is_active,logo):

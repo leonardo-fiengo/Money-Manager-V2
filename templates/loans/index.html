@@ -1,43 +1,7 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="page-title">
-    <div class="title-copy"><p class="eyebrow">Between people</p><h1>Loans</h1></div>
-    <a class="button" href="{{ url_for('loans.new') }}">Add Loan</a>
-</div>
-
-<form class="filters" method="get">
-    <select name="status">
-        <option value="">All loans</option>
-        <option value="open" {% if status == "open" %}selected{% endif %}>Open</option>
-        <option value="closed" {% if status == "closed" %}selected{% endif %}>Closed</option>
-    </select>
-    <button>Filter</button>
-</form>
-
-<div class="table-scroll"><table>
-    <tr><th>Type</th><th>Person</th><th>Start</th><th>Due</th><th>Expected</th><th>Paid</th><th>Outstanding</th><th>Status</th><th></th></tr>
-    {% for loan in loans %}
-    <tr>
-        <td>
-            <span class="loan-pill loan-pill-{{ loan.direction }}">
-                {{ "To receive" if loan.direction == "lent_out" else "To pay" }}
-            </span>
-        </td>
-        <td>{{ loan.counterparty }}</td>
-        <td>{{ loan.start_date }}</td>
-        <td>{{ loan.due_date or "" }}</td>
-        <td class="money">&euro;{{ "%.2f"|format(loan.expected_total_amount) }}</td>
-        <td class="money">&euro;{{ "%.2f"|format(loan.paid_amount) }}</td>
-        <td class="money">&euro;{{ "%.2f"|format(loan.outstanding_amount) }}</td>
-        <td>{{ loan.status|title }}</td>
-        <td class="actions">
-            <a class="action-link" href="{{ url_for('loans.detail', loan_id=loan.id) }}">Open</a>
-            <a class="action-link" href="{{ url_for('loans.edit', loan_id=loan.id) }}">Edit</a>
-            <form method="post" action="{{ url_for('loans.delete', loan_id=loan.id) }}" data-confirm="Delete this loan and its payments?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger-link">Delete</button></form>
-        </td>
-    </tr>
-    {% else %}
-    <tr><td colspan="9" class="empty-state">No loans yet.</td></tr>
-    {% endfor %}
-</table></div>
+{% extends 'base.html' %}{% from '_icons.html' import icon %}{% block content %}
+<div class="page-title"><div><p class="eyebrow">Between people</p><h1>{{ 'Debts' if debt_view else 'Loans' }}</h1><p class="dashboard-intro">{{ 'Who owes whom. Awkward conversations, neatly organized.' if debt_view else 'Borrowing, lending, and the satisfying part: getting paid back.' }}</p></div><a class="button" href="{{ url_for('loans.new',kind='debt' if debt_view else 'loan') }}">{{ icon('plus') }}{{ 'Add debt' if debt_view else 'Add loan' }}</a></div>
+{% set owed=all_loans|selectattr('direction','equalto','borrowed')|selectattr('status','equalto','open')|list %}{% set receivable=all_loans|selectattr('direction','equalto','lent_out')|selectattr('status','equalto','open')|list %}
+<div class="people-summary"><article class="people-summary-card tone-rose"><span class="people-icon">{{ icon('down') }}</span><span>I owe</span><strong data-private-balance>{{ owed|sum(attribute='outstanding_amount')|money }}</strong><small>{{ owed|length }} open {{ 'debts and loans' if debt_view else 'loans' }}</small></article><article class="people-summary-card tone-mint"><span class="people-icon">{{ icon('up') }}</span><span>Owed to me</span><strong data-private-balance>{{ receivable|sum(attribute='outstanding_amount')|money }}</strong><small>{{ receivable|length }} reasons to politely follow up</small></article><article class="people-summary-card tone-sky"><span class="people-icon">{{ icon('check') }}</span><span>Settled</span><strong>{{ all_loans|selectattr('status','equalto','closed')|list|length }}</strong><small>Look at you, keeping things tidy.</small></article></div>
+<div class="people-list-controls">{% if debt_view %}<nav class="activity-tabs" aria-label="Debt direction">{% for key,label in [('', 'All'),('borrowed','I owe'),('lent_out','Owed to me')] %}<a class="{{ 'active' if (direction or '')==key else '' }}" href="{{ url_for('debts.index',direction=key,status=status or '') }}">{{ label }}</a>{% endfor %}</nav>{% else %}<a href="{{ url_for('debts.index') }}">View all debts &amp; loans {{ icon('right') }}</a>{% endif %}<form method="get"><input type="hidden" name="direction" value="{{ direction or '' }}"><label class="sr-only" for="loan-status">Status</label><select id="loan-status" name="status"><option value="">All statuses</option><option value="open" {{ 'selected' if status=='open' else '' }}>Open</option><option value="closed" {{ 'selected' if status=='closed' else '' }}>Settled</option></select><button class="secondary-button">Apply</button></form></div>
+<div class="obligation-list">{% for loan in loans %}<a class="obligation-row" href="{{ url_for('loans.detail',loan_id=loan.id) }}"><span class="people-icon {{ 'tone-mint' if loan.direction=='lent_out' else 'tone-rose' }}">{{ icon('up' if loan.direction=='lent_out' else 'down') }}</span><span class="obligation-copy"><strong>{{ loan.counterparty }}</strong><small>{{ 'Owed to me' if loan.direction=='lent_out' else 'I owe' }} · {{ loan.kind|title }}{% if loan.due_date %} · Due {{ loan.due_date|display_date }}{% endif %}</small><span class="obligation-progress"><span style="width:{{ [100,loan.paid_amount/loan.expected_total_amount*100]|min }}%"></span></span></span><span class="obligation-amount"><strong data-private-balance>{{ loan.outstanding_amount|money }}</strong><small class="{{ 'status-action' if loan.status=='open' and loan.due_date and loan.due_date<today else '' }}">{{ 'Settled' if loan.status=='closed' else 'Overdue' if loan.due_date and loan.due_date<today else 'Remaining' }}</small></span>{{ icon('right') }}</a>{% else %}<section class="people-empty"><span class="people-icon tone-mint">{{ icon('check') }}</span><h2>{{ 'Nothing owed here.' if not all_loans else 'No records match these filters.' }}</h2><p>{{ 'A rare and beautiful state of affairs. Add a record whenever money changes hands.' if not all_loans else 'Try another direction or status.' }}</p></section>{% endfor %}</div>
 {% endblock %}

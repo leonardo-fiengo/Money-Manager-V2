@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% from '_icons.html' import icon %}{% block content %}
+<div class="page-title"><div><p class="eyebrow">Settings</p><h1>{{ title }}</h1></div></div>
+<div class="settings-layout"><nav class="settings-nav" aria-label="Settings sections">{% for key,symbol,label,description in sections %}<a {{ 'aria-current=page' if section==key else '' }} href="{{ url_for('settings.workspace') if key=='workspace' else url_for('settings.section',section=key) }}">{{ icon(symbol) }}{{ label }}</a>{% endfor %}</nav><div class="settings-content">{% include '_settings_sections.html' %}</div></div>
+{% endblock %}

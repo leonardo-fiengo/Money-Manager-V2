@@ -125,20 +125,24 @@ def spending_by_tag():
 
 
 def cumulative_balance():
-    rows = defaultdict(float)
+    # Ledger amounts are already converted to EUR and transfer mirrors are
+    # excluded by the view. A transfer moves money, never combined net worth.
+    rows = defaultdict(int)
     for tx in _posted_transactions():
-        amount = _amount_eur(tx)
+        amount = tx['amount_eur_minor']
         if tx["type"] == "income":
             rows[tx["date"]] += amount
         elif tx["type"] in ("expense", "investment"):
             rows[tx["date"]] -= amount
-    for check in get_db().execute("SELECT created_at, adjustment FROM balance_checks WHERE adjustment != 0"):
-        rows[check["created_at"][:10]] += check["adjustment"]
-    balance = sum(a["opening_balance"] for a in account_balances())
+    for check in get_db().execute("""SELECT COALESCE(s.through_date,substr(b.created_at,1,10)) AS date,
+            b.adjustment_minor FROM balance_checks b
+            LEFT JOIN reconciliation_sessions s ON s.id=b.session_id WHERE b.adjustment_minor != 0"""):
+        rows[check['date']] += check['adjustment_minor']
+    balance = get_db().execute('SELECT COALESCE(SUM(opening_balance_minor),0) AS total FROM accounts').fetchone()['total']
     output = []
     for day, change in sorted(rows.items()):
         balance += change
-        output.append({"date": day, "balance": round(balance, 2)})
+        output.append({"date": day, "balance": balance / 100})
     return output
 
 

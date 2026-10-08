@@ -40,7 +40,7 @@ def cash_forecast(days=30,scenario_id=None):
     for tx in db.execute("SELECT * FROM ledger_transactions WHERE status='pending' AND date<=?",(end.isoformat(),)):
         if tx['recurring_rule_id']: existing.add((tx['recurring_rule_id'],tx['date']))
         when=max(tx['date'],(today+timedelta(days=1)).isoformat())
-        events[when].append(dict(date=when,name=tx['description'] or tx['category'] or tx['type'].title(),minor=tx['amount_eur_minor'],type=tx['type'],account_id=tx['account_id'],destination_account_id=tx['destination_account_id'],source='pending'))
+        events[when].append(dict(date=when,due_date=tx['date'],transaction_id=tx['id'],name=tx['description'] or tx['category'] or tx['type'].title(),minor=tx['amount_eur_minor'],type=tx['type'],account_id=tx['account_id'],destination_account_id=tx['destination_account_id'],source='settlement' if tx['is_credit_card_settlement'] else 'pending',category=tx['category']))
         account=next(a for a in accounts if a['id']==tx['account_id'])
         if tx['type']=='expense' and account['type']=='credit_card' and account['settlement_account_id'] and not db.execute('SELECT 1 FROM transactions WHERE settlement_for_transaction_id=?',(tx['id'],)).fetchone():
             from money_manager.utils.dates import next_settlement_date
@@ -53,7 +53,7 @@ def cash_forecast(days=30,scenario_id=None):
         while due<=end:
             if due>=today and (rule['id'],due.isoformat()) not in existing:
                 when=max(due.isoformat(),(today+timedelta(days=1)).isoformat())
-                events[when].append(dict(date=when,name=rule['name'],minor=rule['amount_eur_minor'],type=rule['type'],account_id=rule['account_id'],destination_account_id=None,source='recurring'))
+                events[when].append(dict(date=when,due_date=due.isoformat(),name=rule['name'],minor=rule['amount_eur_minor'],type=rule['type'],account_id=rule['account_id'],destination_account_id=None,source='recurring',category=rule['category']))
                 account=next(a for a in accounts if a['id']==rule['account_id'])
                 if rule['type']=='expense' and account['type']=='credit_card' and account['settlement_account_id']:
                     from money_manager.utils.dates import next_settlement_date

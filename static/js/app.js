@@ -588,7 +588,7 @@ document.querySelectorAll("[data-visual-select]").forEach((select) => {
     select.addEventListener("change", () => updateSelectVisual(select));
     enhanceSelect(select);
 });
-document.querySelectorAll("select:not([data-visual-select]):not(:disabled)").forEach((select) => {
+document.querySelectorAll("select:not([data-visual-select]):not([data-native-select]):not(:disabled)").forEach((select) => {
     if (!select.closest(".amount-control")) enhanceSelect(select);
 });
 

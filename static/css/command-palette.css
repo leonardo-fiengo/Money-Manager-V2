@@ -1,0 +1,28 @@
+/* A compact launcher for pages and quick actions. */
+.command-palette { inset:0; width:min(900px,calc(100vw - 40px)); max-width:none; max-height:min(80dvh,760px); margin:auto; padding:0; border:1px solid var(--line); border-radius:12px; background:var(--panel); color:var(--text); box-shadow:0 24px 80px #10291f33; overflow:hidden; text-align:left; }
+.command-palette[open] { display:flex; flex-direction:column; }
+.command-palette .command-search { display:flex; align-items:center; gap:14px; padding:18px 22px; border-bottom:1px solid var(--line); flex-shrink:0; }
+.command-search > .ui-icon { width:21px; height:21px; flex:0 0 21px; color:var(--accent); }
+.command-palette .command-search input { flex:1; min-width:0; width:auto; margin:0; padding:7px 0; border:0; border-radius:0; background:transparent; box-shadow:none; color:var(--text); font-size:15px; }
+.command-palette .command-search input:focus { outline:0; box-shadow:none; }
+.command-palette .command-close { display:grid; place-items:center; padding:6px; min-height:30px; border:0; background:transparent; color:var(--muted); border-radius:7px; }
+.command-palette .command-close:hover { background:var(--panel-soft); color:var(--text); }
+.command-palette .command-close kbd { margin:0; padding:4px 7px; border:0; background:var(--panel-soft); font-size:11px; }
+.command-palette nav.command-results { display:block; padding:18px 22px; overflow-y:auto; overscroll-behavior:contain; min-height:0; text-align:left; scrollbar-width:thin; }
+.command-palette section.command-group { margin:0 0 20px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; }
+.command-group:last-of-type { margin-bottom:0; }
+.command-group h3 { margin:0 0 10px; color:var(--muted); font-size:10px; font-weight:650; letter-spacing:.07em; text-transform:uppercase; }
+.command-group-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; }
+.command-palette .command-results a.command-tile { display:flex; align-items:center; justify-content:flex-start; gap:10px; min-width:0; min-height:62px; width:auto; margin:0; padding:11px; border:1px solid var(--line); border-radius:9px; background:var(--panel); color:var(--text); text-align:left; text-decoration:none; font-size:12px; }
+.command-palette .command-results a.command-tile:hover { border-color:var(--line-strong); background:var(--panel-soft); color:var(--text); }
+.command-palette .command-results a.command-tile:focus-visible { outline:2px solid var(--accent); outline-offset:1px; border-color:var(--accent); background:var(--highlight); color:var(--text); }
+.command-tile-icon { display:grid; place-items:center; width:32px; height:32px; flex:0 0 32px; border-radius:8px; }
+.command-tile-icon .ui-icon { width:18px; height:18px; }
+.command-tile-label { display:block; min-width:0; line-height:1.4; overflow-wrap:anywhere; font-weight:550; }
+.command-no-match { padding:20px 0; color:var(--muted); font-size:13px; }
+.command-transaction-search { max-width:420px; }
+.command-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:11px 22px; border-top:1px solid var(--line); color:var(--muted); font-size:10px; flex-shrink:0; }
+.command-footer > span:first-child { display:flex; align-items:center; gap:5px; }
+.command-footer kbd { font:inherit; padding:2px 5px; border:1px solid var(--line); border-radius:4px; background:var(--panel-soft); }
+@media(max-width:750px) { .command-palette { width:calc(100vw - 28px); max-height:85dvh; }.command-group-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }.command-palette .command-results a.command-tile { flex-direction:column; align-items:flex-start; gap:9px; min-height:88px; }.command-tile-label { font-size:11px; }.command-palette .command-search,.command-palette nav.command-results { padding:16px; }.command-footer { padding-inline:16px; } }
+@media(max-width:420px) { .command-group-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }.command-palette .command-results a.command-tile { flex-direction:row; min-height:66px; gap:8px; padding:9px; }.command-tile-icon { width:28px; height:28px; flex-basis:28px; }.command-palette .command-search { gap:10px; }.command-palette .command-search input { font-size:13px; }.command-footer { font-size:9px; gap:8px; }.command-footer > span:first-child { gap:3px; } }

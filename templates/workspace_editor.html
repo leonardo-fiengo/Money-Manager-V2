@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% from '_icons.html' import icon %}
+{% from '_today_widgets.html' import widget with context %}
+{% macro editable(block) %}
+<article class="editor-block today-widget widget-{{ block.id }} widget-width-{{ block.width }}" data-editor-block="{{ block.id }}" data-width="{{ block.width }}" aria-label="{{ block.title }} widget">
+  <div class="editor-block-toolbar"><strong>{{ block.title }}</strong><div><button type="button" data-move="up" aria-label="Move {{ block.title }} up" title="Move up">{{ icon('up') }}</button><button type="button" data-move="down" aria-label="Move {{ block.title }} down" title="Move down">{{ icon('down') }}</button><button type="button" data-widget-width aria-label="Change {{ block.title }} width">{{ 'Full width' if block.width=='full' else 'Half width' }}</button><button type="button" data-remove-widget aria-label="Remove {{ block.title }}">Remove</button></div></div>
+  <input type="hidden" name="widgets" value="{{ block.id }}"><input type="hidden" name="widths" value="{{ block.width }}">
+  <div class="editor-widget-preview" inert>{{ widget(block.id, true) }}</div>
+</article>
+{% endmacro %}
+{% block content %}
+<form method="post" class="workspace-editor" data-workspace-editor>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="editor-heading"><div><p class="eyebrow">Make yourself at home</p><h1>Today workspace</h1><p>Add your widgets. Move them around. Evict the ones you don't need.</p></div><div class="editor-save-controls"><a href="{{ url_for('dashboard.index') }}" class="secondary-button">Cancel</a><button type="submit">Save workspace</button></div></div>
+  {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
+  <noscript><p>Enable JavaScript to arrange widgets. Your saved workspace is still available on Today.</p></noscript>
+  <div class="editor-layout"><aside class="widget-library" aria-label="Widget library"><h2>{{ icon('plus') }}Add a widget</h2><p>A few useful things. Zero clutter required.</p>{% for block in catalog %}<div class="library-widget"><span class="library-widget-icon tone-{{ ['mint','sky','rose','lavender'][loop.index0%4] }}">{{ icon(block.icon) }}</span><div><strong>{{ block.title }}</strong><small>{{ block.description }}</small></div><button type="button" class="secondary-button" data-add-widget="{{ block.id }}" {% if block.id in layout|map(attribute='id')|list %}disabled{% endif %}>{{ 'Added' if block.id in layout|map(attribute='id')|list else 'Add' }}</button></div>{% endfor %}<button type="button" class="editor-reset secondary-button" data-reset-workspace>Reset to default</button></aside>
+    <div class="editor-canvas"><div class="editor-canvas-heading"><span>YOUR TODAY PAGE</span><span data-editor-status role="status" aria-live="polite">Saved layout · {{ layout|length }} widgets</span></div><div class="today-widget-grid" data-editor-canvas>{% for block in layout %}{{ editable(block) }}{% endfor %}</div><div class="editor-empty" data-editor-empty {% if layout %}hidden{% endif %}><h2>A fresh canvas.</h2><p>Add a widget from the library to get started.</p></div></div>
+  </div>
+</form>
+{% for block in catalog %}<template data-widget-template="{{ block.id }}">{{ editable(block) }}</template>{% endfor %}
+{% endblock %}

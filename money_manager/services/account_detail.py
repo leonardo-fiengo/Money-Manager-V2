@@ -50,8 +50,12 @@ def account_detail(account_id, period='month', history_months=6):
         history.append(dict(date=point.isoformat(),balance=balance_at(account_id,point.isoformat())))
         point += timedelta(days=7)
     history.append(dict(date=today.isoformat(),balance=balance_at(account_id,today.isoformat())))
+    from money_manager.services.cockpit import cockpit_summary
+    workspace = next(a for a in cockpit_summary()['accounts'] if a['id']==account_id)
+    reserved_pots = db.execute("""SELECT p.name,p.id,s.reserved_minor/100.0 AS amount FROM pot_sources s JOIN savings_pots p ON p.id=s.pot_id
+        WHERE s.account_id=? AND s.reserved_minor>0 AND p.spent_at IS NULL AND p.deleted_at IS NULL""",(account_id,)).fetchall()
     return dict(account=account,recent=list_transactions(dict(account_id=account_id,account_activity=True),limit=6),
                 categories=breakdown,spent=sum(totals.values())/100,monthly_spending=monthly_spending,
                 month_in=month_in,top_up_source=top_up_source,settlement=settlement,
                 is_default=bool(defaults and defaults[0]['id']==account_id),history=history,
-                period=period,history_months=history_months)
+                period=period,history_months=history_months,workspace=workspace,reserved_pots=reserved_pots)

@@ -5,43 +5,53 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Money Manager</title>
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static',filename='img/favicon.svg') }}">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/tokens.css',v=asset_version('css/tokens.css')) }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/money-manager.css', v=asset_version('css/money-manager.css')) }}">
-    <script>try { document.documentElement.dataset.theme = localStorage.getItem('money-manager-theme') || 'light'; document.documentElement.dataset.balancesHidden = localStorage.getItem('money-manager-hide-balance') === '1' ? 'true' : 'false'; } catch (_) {}</script>
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/accounts.css',v=asset_version('css/accounts.css')) }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/workspaces.css',v=asset_version('css/workspaces.css')) }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/today.css',v=asset_version('css/today.css')) }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/command-palette.css',v=asset_version('css/command-palette.css')) }}">
+    <link rel="stylesheet" href="{{ url_for('static',filename='css/people.css',v=asset_version('css/people.css')) }}">
+    <script>try { {% if overview is defined %}if (localStorage.getItem('money-manager-design') !== 'premium-v1') { localStorage.setItem('money-manager-theme','dark'); localStorage.setItem('money-manager-design','premium-v1'); }{% endif %} document.documentElement.dataset.theme = localStorage.getItem('money-manager-theme') || 'dark'; document.documentElement.dataset.balancesHidden = localStorage.getItem('money-manager-hide-balance') === '1' ? 'true' : 'false'; } catch (_) {}</script>
 </head>
-<body class="page-{{ request.blueprint or 'dashboard' }}">
-    <aside class="app-sidebar" aria-label="Main navigation">
-        <a class="brand" href="{{ url_for('dashboard.index') }}"><span class="brand-mark"><img src="{{ url_for('static', filename='img/brand-logo.svg') }}" alt=""></span><span>Money Manager</span></a>
+{% set embedded=request.args.get('panel')=='1' %}
+{% set in_plan=request.blueprint in ['plan','budgets','calendar','pending','recurring','forecast'] or request.endpoint=='accounts.pots' %}
+{% set in_debts=request.blueprint=='debts' or (request.blueprint=='loans' and ((kind is defined and kind=='debt') or (loan is defined and loan and loan.kind=='debt'))) %}
+<body class="premium-shell {{ 'is-embedded' if embedded else '' }} page-{{ request.blueprint or 'dashboard' }}">
+    {% if not embedded %}
+    <aside class="app-sidebar workspace-sidebar" aria-label="Main navigation">
+        <a class="brand" href="{{ url_for('dashboard.index') }}"><span class="brand-mark"><svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 24V8l12 9L28 8v16M4 8l12 9 12-9M10 20v6m12-6v6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/></svg></span><span>Money Manager <b>V2</b></span></a>
         <nav class="side-nav" aria-label="Main">
-            <span class="nav-caption">Money</span>
-            <a class="nav-link {% if request.endpoint == 'dashboard.index' %}active{% endif %}" href="{{ url_for('dashboard.index') }}">{{ icon("overview") }}<span>Overview</span></a>
-            <a class="nav-link {% if request.blueprint == 'inbox' %}active{% endif %}" href="{{ url_for('inbox.index') }}">{{ icon("inbox") }}<span>Money inbox</span></a>
-            <a class="nav-link {% if request.blueprint == 'transactions' and request.endpoint != 'transactions.new' %}active{% endif %}" href="{{ url_for('transactions.index') }}">{{ icon("transactions") }}<span>Transactions</span></a>
-            <a class="nav-link {% if request.blueprint == 'accounts' and request.endpoint != 'accounts.pots' %}active{% endif %}" href="{{ url_for('accounts.index') }}">{{ icon("accounts") }}<span>Accounts</span></a>
-            <span class="nav-caption">Plan</span>
-            <a class="nav-link {% if request.blueprint == 'budgets' %}active{% endif %}" href="{{ url_for('budgets.index') }}">{{ icon("budgets") }}<span>Budgets</span></a>
-            <a class="nav-link {% if request.blueprint == 'recurring' %}active{% endif %}" href="{{ url_for('recurring.index') }}">{{ icon("recurring") }}<span>Recurring</span></a>
-            <a class="nav-link {% if request.blueprint in ['calendar', 'pending'] %}active{% endif %}" href="{{ url_for('calendar.index') }}">{{ icon("calendar") }}<span>Scheduled</span></a>
-            <a class="nav-link {% if request.endpoint == 'accounts.pots' %}active{% endif %}" href="{{ url_for('accounts.pots') }}">{{ icon("target") }}<span>Goals</span></a>
-            <span class="nav-caption">Analyze</span>
-            <a class="nav-link {% if request.blueprint in ['analytics', 'forecast'] %}active{% endif %}" href="{{ url_for('analytics.index') }}">{{ icon("insights") }}<span>Insights</span></a>
+        {% for endpoint,symbol,label in [('dashboard.index','overview','Overview'),('transactions.index','transactions','Transactions'),('accounts.index','accounts','Accounts'),('budgets.index','budgets','Budgets'),('forecast.index','insights','Forecast'),('analytics.index','insights','Analytics'),('recurring.index','recurring','Recurring'),('settings.index','settings','Settings')] %}
+          {% set active=request.blueprint==endpoint.split('.')[0] and (endpoint!='accounts.index' or request.endpoint!='accounts.pots') %}
+          <a class="nav-link {{ 'active' if active else '' }}" href="{{ url_for(endpoint) }}" {% if active %}aria-current="page"{% endif %}>{{ icon(symbol) }}<span>{{ label }}</span></a>
+        {% endfor %}
         </nav>
-        <div class="side-bottom">
-            <button class="nav-add" type="button" data-open-quick-add>{{ icon("plus") }}<span>Add transaction</span></button>
-            <div class="sidebar-controls">
-                <a class="sidebar-icon-button {% if request.blueprint in ['settings','finance'] %}active{% endif %}" href="{{ url_for('settings.index') }}" aria-label="Settings &amp; tools" title="Settings &amp; tools" {% if request.blueprint in ['settings','finance'] %}aria-current="page"{% endif %}>{{ icon('settings') }}</a>
-                <button type="button" class="sidebar-icon-button theme-toggle" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode">{{ icon('sun', 'theme-sun') }}{{ icon('moon', 'theme-moon') }}</button>
-            </div>
-        </div>
-        <nav class="mobile-nav" aria-label="Mobile navigation"><a {% if request.blueprint == 'dashboard' %}aria-current="page"{% endif %} href="{{ url_for('dashboard.index') }}">Home</a><a {% if request.blueprint in ['transactions'] %}aria-current="page"{% endif %} href="{{ url_for('transactions.index') }}">Activity</a><button type="button" data-open-quick-add aria-label="Add transaction">+</button><a {% if request.blueprint in ['budgets', 'recurring', 'calendar', 'pending'] %}aria-current="page"{% endif %} href="{{ url_for('budgets.index') }}">Plan</a><a {% if request.blueprint in ['analytics', 'forecast'] %}aria-current="page"{% endif %} href="{{ url_for('analytics.index') }}">Insights</a></nav>
+        <div class="workspace-secondary-nav">{% for endpoint,symbol,label in [('debts.index','debts','Debts'),('loans.index','loans','Loans'),('taxes.index','taxes','Taxes')] %}<a class="nav-link {{ 'active' if (in_debts if endpoint=='debts.index' else request.blueprint=='loans' and not in_debts if endpoint=='loans.index' else request.blueprint==endpoint.split('.')[0]) else '' }}" href="{{ url_for(endpoint) }}">{{ icon(symbol) }}<span>{{ label }}</span></a>{% endfor %}</div>
     </aside>
-    <button type="button" class="mobile-theme-toggle" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode">{{ icon('sun', 'theme-sun') }}{{ icon('moon', 'theme-moon') }}</button>
-    <details class="mobile-tools"><summary>Money Manager · Menu</summary><div><a href="{{ url_for('inbox.index') }}">Money inbox</a><a href="{{ url_for('accounts.index') }}">Accounts</a><a href="{{ url_for('recurring.index') }}">Recurring</a><a href="{{ url_for('recurring.subscriptions') }}">Subscriptions</a><a href="{{ url_for('calendar.index') }}">Scheduled</a><a href="{{ url_for('accounts.pots') }}">Goals</a><a href="{{ url_for('loans.index') }}">Loans</a><a href="{{ url_for('pending.index') }}">Pending</a><a href="{{ url_for('forecast.index') }}">Forecast</a><a href="{{ url_for('accounts.check') }}">Check balances</a><a href="{{ url_for('merchants.index') }}">Merchants</a><a href="{{ url_for('categories.index') }}">Categories</a><a href="{{ url_for('settings.index') }}">Settings &amp; tools</a></div></details>
-    <main class="page">
-        {% set sidebar_pages = ['dashboard.index', 'inbox.index', 'transactions.index', 'accounts.index', 'budgets.index', 'recurring.index', 'calendar.index', 'accounts.pots', 'analytics.index', 'settings.index'] %}
-        {% if request.endpoint not in sidebar_pages %}
-        {% set back_parents = {'transactions.import_rules': 'transactions.import_csv', 'transactions.import_batch': 'transactions.import_csv', 'forecast.index': 'analytics.index', 'pending.index': 'calendar.index', 'categories.index': 'settings.index', 'merchants.index': 'settings.index', 'backup.index': 'settings.index', 'paypal_transfer.index': 'settings.index', 'loans.index': 'settings.index'} %}
-        {% set back_endpoint = 'recurring.index' if request.endpoint=='finance.occurrences' else 'settings.index' if request.blueprint=='finance' else back_parents.get(request.endpoint, 'dashboard.index' if request.endpoint.endswith('.index') else request.blueprint ~ '.index') %}
+    {% if overview is defined %}
+    <header class="app-navbar ov-navbar" aria-label="Global controls">
+      <div class="ov-greeting"><h1>{{ overview.greeting }}{% if local_profile.display_name %}, {{ local_profile.display_name }}{% endif %}</h1><p>Here's your financial overview.</p></div>
+      <nav class="navbar-controls" aria-label="Quick controls">
+        <button type="button" class="ov-search" data-open-command aria-label="Search transactions, merchants, or anything">{{ icon('search') }}<span>Search transactions, merchants, or anything...</span><kbd>Ctrl K</kbd></button>
+        <button type="button" class="navbar-icon ov-mobile-search" data-open-command aria-label="Search">{{ icon('search') }}</button>
+        <a class="navbar-icon ov-notifications" href="{{ url_for('inbox.index') }}" aria-label="Money inbox" title="Money inbox">{{ icon('bell') }}{% if overview.cockpit.actions %}<span class="ov-notification-dot"></span>{% endif %}</a>
+        <a class="navbar-account" href="{{ url_for('profile.index') }}" aria-label="Your personal profile"><span class="navbar-avatar">{% if local_profile.avatar_data %}<img src="{{ local_profile.avatar_data }}" alt="">{% else %}{{ local_profile.display_name[:1]|upper if local_profile.display_name else icon('person') }}{% endif %}</span></a>
+        <time class="ov-current-date" datetime="{{ overview.today }}">{{ overview.date_label }}</time>
+      </nav>
+    </header>
+    {% else %}
+    <header class="app-navbar" aria-label="Global controls"><a class="navbar-home" href="{{ url_for('dashboard.index') }}">Money Manager</a><span class="navbar-location">{{ 'Your account' if request.blueprint=='profile' else 'Plan' if in_plan and request.endpoint!='recurring.subscriptions' else 'Today' if request.blueprint=='dashboard' else 'Activity' if request.blueprint=='transactions' else 'Accounts' if request.blueprint=='accounts' else 'Insights' if request.blueprint=='analytics' or request.endpoint in ['finance.net_worth','recurring.subscriptions'] else 'Money inbox' if request.blueprint=='inbox' else 'Contacts' if request.blueprint=='contacts' else 'Debts' if in_debts else 'Loans' if request.blueprint=='loans' else 'Taxes' if request.blueprint=='taxes' else 'Settings' }}</span><nav class="navbar-controls" aria-label="Quick controls"><button type="button" class="navbar-icon mobile-page-launcher" data-open-command aria-label="Jump to page" title="Jump to page">{{ icon('overview') }}</button><a class="navbar-icon {{ 'active' if request.blueprint=='inbox' else '' }}" href="{{ url_for('inbox.index') }}" aria-label="Money inbox" title="Money inbox">{{ icon('inbox') }}</a><a class="navbar-icon {{ 'active' if request.blueprint=='settings' else '' }}" href="{{ url_for('settings.index') }}" aria-label="Settings" title="Settings">{{ icon('settings') }}</a><button class="navbar-add" type="button" data-open-quick-add>{{ icon('plus') }}<span>Add transaction</span></button><a class="navbar-account {{ 'active' if request.blueprint=='profile' else '' }}" href="{{ url_for('profile.index') }}" aria-label="Account" title="Your personal profile"><span class="navbar-avatar">{% if local_profile.avatar_data %}<img src="{{ local_profile.avatar_data }}" alt="">{% else %}{{ local_profile.display_name[:1]|upper if local_profile.display_name else icon('person') }}{% endif %}</span><span>Account</span></a><button class="navbar-icon" type="button" data-theme-toggle aria-label="Switch to dark mode" title="Switch to dark mode">{{ icon('sun','theme-sun') }}{{ icon('moon','theme-moon') }}</button></nav></header>
+    {% endif %}
+    <nav class="mobile-nav workspace-mobile-nav" aria-label="Mobile navigation"><a href="{{ url_for('dashboard.index') }}" {{ 'aria-current=page' if request.blueprint in ['dashboard','inbox'] else '' }}>{{ icon('overview') }}<span>Overview</span></a><a href="{{ url_for('transactions.index') }}" {{ 'aria-current=page' if request.blueprint=='transactions' else '' }}>{{ icon('transactions') }}<span>Transactions</span></a><button type="button" data-open-quick-add aria-label="Add transaction">{{ icon('plus') }}</button><a href="{{ url_for('plan.index') }}" {{ 'aria-current=page' if in_plan else '' }}>{{ icon('target') }}<span>Plan</span></a><a href="{{ url_for('analytics.index') }}" {{ 'aria-current=page' if request.blueprint=='analytics' else '' }}>{{ icon('insights') }}<span>Analytics</span></a></nav>
+    {% endif %}
+    <main class="page {{ 'embedded-page' if embedded else '' }}">
+        {% set sidebar_pages=['dashboard.index','budgets.index','forecast.index','recurring.index','transactions.index','plan.index','accounts.index','analytics.index','settings.index','profile.index','debts.index','loans.index','taxes.index','inbox.index'] %}
+        {% if request.endpoint not in sidebar_pages and not embedded %}
+        {% set back_parents={'transactions.import_rules':'transactions.import_csv','transactions.import_batch':'transactions.import_csv','inbox.index':'dashboard.index','categories.index':'settings.index','merchants.index':'settings.index','backup.index':'settings.index','paypal_transfer.index':'settings.index','contacts.index':'profile.index','accounts.pots':'plan.index','forecast.index':'plan.index','budgets.index':'plan.index','recurring.index':'plan.index','calendar.index':'plan.index','pending.index':'transactions.index','recurring.subscriptions':'analytics.index'} %}
+        {% set back_endpoint=back_parents.get(request.endpoint,'analytics.index' if request.endpoint=='finance.net_worth' else 'transactions.index' if request.endpoint in ['finance.imports','finance.recovery'] else 'settings.index' if request.blueprint=='finance' else 'debts.index' if request.blueprint=='loans' and loan is defined and loan and loan.kind=='debt' else request.blueprint ~ '.index') %}
         <a class="page-back" href="{{ url_for(back_endpoint) }}" data-page-back aria-label="Go back">{{ icon('left') }}<span>Back</span></a>
         {% endif %}
         {% for category, message in get_flashed_messages(with_categories=true) %}
@@ -52,21 +62,26 @@
             {% else %}{{ message }}{% endif %}
         </div>
         {% endfor %}
+        {% if request.endpoint in ['plan.index','budgets.index','calendar.index','recurring.index','accounts.pots','forecast.index'] and not embedded %}{% include '_plan_tabs.html' %}{% endif %}
         {% block content %}{% endblock %}
     </main>
+    {% if not embedded %}
     <dialog class="quick-add-dialog" data-quick-add-dialog aria-label="Add transaction"><form method="post" action="{{ url_for('transactions.new') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="section-heading"><h2>Quick add</h2><button type="button" class="quiet-button" data-close-quick-add aria-label="Close">×</button></div>
         <div class="quick-type"><label><input type="radio" name="type" value="expense" checked> Expense</label><label><input type="radio" name="type" value="income"> Income</label><label><input type="radio" name="type" value="transfer"> Transfer</label></div>
         <label class="quick-amount">Amount<input type="number" name="amount" min="0.01" step="0.01" placeholder="€ 0.00" required></label>
         <label>Account<select name="account_id" data-visual-select required>{% for account in quick_accounts %}<option value="{{ account.id }}" data-kind="logo" data-logo="{{ account.logo or '' }}">{{ account.name }}</option>{% endfor %}</select></label>
         <label data-quick-destination hidden>Destination<select name="destination_account_id" data-visual-select disabled>{% for account in quick_accounts %}<option value="{{ account.id }}" data-kind="logo" data-logo="{{ account.logo or '' }}">{{ account.name }}</option>{% endfor %}</select></label>
-        <label data-quick-merchant>Merchant<select name="merchant_id" data-visual-select><option value="">None</option>{% for merchant in quick_merchants %}<option value="{{ merchant.id }}" data-kind="logo" data-logo="{{ merchant.logo or '' }}" data-default-category="{{ merchant.default_category or '' }}">{{ merchant.name }}</option>{% endfor %}</select></label>
+        <label data-payee-kind>Payee type<select name="payee_kind"><option value="merchant">Merchant</option><option value="contact">Contact</option></select></label>
+        <label data-payee-contact hidden>Contact<select name="contact_id" disabled><option value="">Choose a contact</option>{% for contact in quick_contacts %}<option value="{{ contact.id }}">{{ contact.name }}</option>{% endfor %}</select><small class="field-help"><a href="{{ url_for('contacts.index') }}">Manage contacts</a></small></label>
+        <label data-quick-merchant data-payee-merchant>Merchant<select name="merchant_id" data-visual-select><option value="">None</option>{% for merchant in quick_merchants %}<option value="{{ merchant.id }}" data-kind="logo" data-logo="{{ merchant.logo or '' }}" data-default-category="{{ merchant.default_category or '' }}">{{ merchant.name }}</option>{% endfor %}</select></label>
         <label data-quick-category>Category<select name="category" data-visual-select><option value="">None</option>{% for category in quick_categories %}<option value="{{ category.name }}" data-kind="color" data-color="{{ category.color }}" data-icon="{{ category.icon or category.name[0] }}" data-category-type="{{ category.type }}">{{ category.name }}</option>{% endfor %}</select></label>
         <label>Note<input name="description" placeholder="What was it for?"></label>
         <details class="quick-more"><summary>More details</summary><div><label>Date<span class="date-control"><span class="date-icon" aria-hidden="true"></span><input type="date" name="date" value="{{ today_iso() }}" required></span></label><p class="future-payment-note" data-future-note hidden>Future payment — this will stay scheduled until its date.</p><label>Currency<select name="currency"><option>EUR</option><option>USD</option><option>GBP</option><option>CHF</option></select></label><a class="quiet-button" href="{{ url_for('transactions.new') }}">Open full editor</a></div></details>
         <div class="quick-actions"><button>Add transaction</button></div>
     </form></dialog>
-    <dialog class="command-palette" data-command-palette aria-label="Quick actions"><div class="command-search"><span aria-hidden="true">⌕</span><input data-command-input placeholder="Search or jump to…" aria-label="Search quick actions"><kbd>Esc</kbd></div><nav class="command-results" aria-label="Quick actions"><a href="{{ url_for('transactions.new') }}" data-command-item>Add transaction</a><a href="{{ url_for('accounts.check') }}" data-command-item>Check balances</a><a href="{{ url_for('accounts.pots') }}#create-pot" data-command-item>Create savings pot</a><a href="{{ url_for('transactions.index') }}" data-command-item>Search transactions</a><a href="{{ url_for('recurring.subscriptions') }}" data-command-item>Subscriptions</a><a href="{{ url_for('forecast.index') }}" data-command-item>Forecast</a><a href="{{ url_for('analytics.index') }}" data-command-item>Insights</a><a href="{{ url_for('settings.index') }}" data-command-item>Settings</a></nav></dialog>
+    {% include '_command_palette.html' %}
+    {% endif %}
     <script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/app.js', v=asset_version('js/app.js')) }}"></script>
     <script src="{{ url_for('static', filename='js/navigation.js', v=asset_version('js/navigation.js')) }}"></script>
@@ -77,5 +92,9 @@
     <script src="{{ url_for('static', filename='js/theme.js', v=asset_version('js/theme.js')) }}"></script>
     <script src="{{ url_for('static', filename='js/v4.js', v=asset_version('js/v4.js')) }}"></script>
     <script src="{{ url_for('static', filename='js/charts.js', v=asset_version('js/charts.js')) }}"></script>
+<script src="{{ url_for('static',filename='js/workspaces.js',v=asset_version('js/workspaces.js')) }}"></script>
+<script src="{{ url_for('static',filename='js/workspace-editor.js',v=asset_version('js/workspace-editor.js')) }}"></script>
+<script src="{{ url_for('static',filename='js/people.js',v=asset_version('js/people.js')) }}"></script>
+{% if overview is defined %}<script src="{{ url_for('static',filename='js/overview.js',v=asset_version('js/overview.js')) }}"></script>{% endif %}
 </body>
 </html>

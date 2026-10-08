@@ -20,6 +20,7 @@ EXPORT_TABLES = [
     "accounts",
     "merchants",
     "categories",
+    "contacts",
     "transactions",
     "recurring_rules",
     "loans",
@@ -41,6 +42,8 @@ EXPORT_TABLES = [
     "reconciliation_sessions", "forecast_scenarios", "transaction_attachments",
     "net_worth_snapshots", "app_preferences", "inbox_dismissals", "recurring_occurrences", 'reconciliation_transactions',
     "pot_sources", "pot_movement_sources", "pot_spending",
+    "local_profile",
+    "taxes", "tax_payments", "tax_estimates",
 ]
 LOGO_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg"}
 
@@ -62,7 +65,7 @@ def export_bundle():
             logos[path.name] = base64.b64encode(path.read_bytes()).decode("ascii")
     from money_manager.services.attachments import attachment_directory
     attachments={p.name:base64.b64encode(p.read_bytes()).decode('ascii') for p in attachment_directory().iterdir() if p.is_file()}
-    return dict(format="money-manager", version=3, schema_version=12, exported_at=datetime.now(timezone.utc).isoformat(),
+    return dict(format="money-manager", version=3, schema_version=14, exported_at=datetime.now(timezone.utc).isoformat(),
                 data=data, merchant_logos=logos, attachments=attachments)
 
 
@@ -187,17 +190,49 @@ def _load_rows(db, data):
                     stored['amount_eur_minor']=stored['amount_minor']
                 if type(stored['amount_eur_minor']) is not int or stored['amount_eur_minor']<=0:
                     raise ValueError('Invalid recurring EUR amount.')
+            if table=='local_profile' and row.get('avatar_data'):
+                from money_manager.services.profile import profile_photo
+                from werkzeug.datastructures import FileStorage
+                photo=row['avatar_data']
+                if not isinstance(photo,str) or len(photo)>3*1024*1024 or not photo.startswith(('data:image/png;base64,','data:image/jpeg;base64,','data:image/webp;base64,')):
+                    raise ValueError('Invalid profile photo in backup.')
+                try:
+                    content=base64.b64decode(photo.split(',',1)[1],validate=True)
+                    checked=profile_photo(FileStorage(stream=io.BytesIO(content),filename='photo'))
+                except (ValueError,TypeError): raise ValueError('Invalid profile photo in backup.') from None
+                if checked!=photo: raise ValueError('Invalid profile photo type in backup.')
+            if table in {'taxes','tax_payments'}:
+                from datetime import date
+                date.fromisoformat(row['due_date' if table=='taxes' else 'date'])
+            if table=='tax_estimates':
+                from money_manager.services.taxes import SOURCE
+                try:
+                    inputs=json.loads(row['inputs_json']);result=json.loads(row['result_json'])
+                    if not isinstance(inputs,dict) or not isinstance(result,dict) or result.get('source')!=SOURCE or result.get('tax_year')!=row['tax_year']:
+                        raise ValueError()
+                    for key in ('income','deductions','credits','local_tax','withheld'):
+                        if to_minor(inputs[key])<0: raise ValueError()
+                    for key in ('taxable','gross','net','total','balance'): to_minor(result[key])
+                    if not isinstance(result['breakdown'],list): raise ValueError()
+                    for bracket in result['breakdown']:
+                        for key in ('lower','rate','portion','tax'): to_minor(bracket[key])
+                except (ValueError,TypeError,KeyError): raise ValueError('Invalid saved tax estimate in backup.') from None
             insert_row(db, table, stored)
     db.execute("INSERT OR IGNORE INTO recurring_occurrences SELECT recurring_rule_id, date FROM transactions WHERE recurring_rule_id IS NOT NULL")
     if db.execute("PRAGMA foreign_key_check").fetchone():
         raise ValueError("The backup contains missing accounts or other broken references.")
+    if db.execute('SELECT 1 FROM transactions WHERE contact_id IS NOT NULL AND merchant_id IS NOT NULL').fetchone():
+        raise ValueError('A transaction cannot have both a contact and a merchant.')
     if db.execute("""SELECT 1 FROM savings_pots p JOIN pot_sources s ON s.pot_id=p.id
         GROUP BY p.id HAVING SUM(s.reserved_minor)>p.reserved_minor""").fetchone():
         raise ValueError('Source reservations exceed their savings pot amounts.')
+    if db.execute('''SELECT 1 FROM taxes t JOIN tax_payments p ON p.tax_id=t.id
+        GROUP BY t.id HAVING SUM(p.amount_minor)>t.amount_minor''').fetchone():
+        raise ValueError('Tax payments exceed their tax amount.')
 
 
 def validate_backup(payload):
-    if not isinstance(payload, dict) or type(payload.get('version',1)) is not int or payload.get("version", 1) not in {1, 2, 3} or type(payload.get('schema_version',11)) is not int or not 0<=payload.get('schema_version',11)<=12:
+    if not isinstance(payload, dict) or type(payload.get('version',1)) is not int or payload.get("version", 1) not in {1, 2, 3} or type(payload.get('schema_version',11)) is not int or not 0<=payload.get('schema_version',11)<=14:
         raise ValueError("Choose a supported Money Manager JSON backup.")
     data = payload.get("data")
     required = {"accounts", "transactions", "categories", "merchants", "recurring_rules", "loans", "loan_payments"}

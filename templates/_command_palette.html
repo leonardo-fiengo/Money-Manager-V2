@@ -1,0 +1,67 @@
+{% from '_icons.html' import icon %}
+{% set command_groups = [
+  ('Your money', [
+    ('dashboard.index','overview','Overview','overview dashboard home',{}),
+    ('transactions.index','transactions','Transactions','transactions history spending',{}),
+    ('plan.index','target','Plan','planning overview',{}),
+    ('accounts.index','accounts','Accounts','bank cash cards wallets balances',{}),
+    ('analytics.index','insights','Analytics','analytics reports charts',{}),
+    ('budgets.index','budgets','Budgets','monthly limits categories',{}),
+    ('calendar.index','calendar','Calendar','days scheduled payments',{}),
+    ('accounts.pots','target','Savings goals','saving pots goals',{}),
+    ('recurring.index','recurring','Recurring','repeating payments bills',{}),
+    ('recurring.subscriptions','recurring','Subscriptions','monthly services',{}),
+    ('forecast.index','insights','Forecast','future cash flow',{}),
+    ('finance.net_worth','insights','Net worth','balance history snapshots',{}),
+    ('debts.index','debts','Debts','owed owe people borrowing lending',{}),
+    ('loans.index','loans','Loans','borrowing lending repayments',{}),
+    ('taxes.index','taxes','Taxes','italy irpef deadlines archive',{}),
+    ('taxes.calculator','taxes','Tax calculator','italy income tax estimate irpef',{})
+  ]),
+  ('Quick actions', [
+    ('transactions.new','plus','Add transaction','new income expense transfer',{}),
+    ('accounts.new','accounts','Add account','new bank wallet card',{}),
+    ('accounts.check','check','Check balances','reconcile accounts',{}),
+    ('accounts.pots','target','Create savings pot','add new goal saving',{'_anchor':'create-pot'}),
+    ('transactions.import_csv','backup','Import transactions','csv statement upload',{}),
+    ('recurring.new','recurring','Add recurring payment','new repeating bill',{})
+  ]),
+  ('Account & tools', [
+    ('profile.index','person','Personal account','profile name appearance',{}),
+    ('settings.index','settings','Settings','preferences tools theme privacy',{}),
+    ('settings.workspace','overview','Workspace editor','today widgets customize layout',{}),
+    ('inbox.index','inbox','Money inbox','next moves alerts review',{}),
+    ('transactions.index','check','Needs review','uncategorized imported activity',{'view':'review'}),
+    ('pending.index','calendar','Pending payments','scheduled upcoming',{}),
+    ('categories.index','filter','Categories','organize spending icons colors',{}),
+    ('merchants.index','transactions','Merchants','shops names logos',{}),
+    ('finance.rules','filter','Transaction rules','automatic import categorization',{}),
+    ('transactions.import_rules','filter','CSV import rules','statement descriptions rename',{}),
+    ('finance.aliases','transactions','Merchant aliases','recognize statement names',{}),
+    ('finance.transfers','transactions','Match transfers','connect accounts payments',{}),
+    ('finance.reconciliation','check','Reconciliation history','balance checks sessions',{}),
+    ('finance.imports','backup','Import history','bank profiles batches rollback',{}),
+    ('finance.recovery','recurring','Transaction recovery','deleted trash restore',{}),
+    ('backup.index','backup','Backup & restore','export snapshots data',{}),
+    ('paypal_transfer.index','arrow','PayPal transfer','move wallet money',{}),
+    ('contacts.index','person','Contacts','address book friends people payments',{}),
+    ('settings.section','overview','Appearance & privacy','theme hide amounts',{'section':'appearance'}),
+    ('settings.section','accounts','Payment preferences','default account',{'section':'payments'}),
+    ('settings.section','filter','Organization','categories merchants rules',{'section':'organization'}),
+    ('settings.section','check','Review tools','reconciliation',{'section':'review'}),
+    ('settings.section','backup','Data & tools','backup import restore',{'section':'data'})
+  ])
+] %}
+<dialog class="command-palette" data-command-palette aria-labelledby="command-title">
+  <h2 class="sr-only" id="command-title">Jump to a page</h2>
+  <div class="command-search">{{ icon('search') }}<input type="search" data-command-input placeholder="Search pages or jump to…" aria-label="Search pages" autocomplete="off" spellcheck="false"><button type="button" class="command-close" data-command-close aria-label="Close page launcher"><kbd>Esc</kbd></button></div>
+  <nav class="command-results" aria-label="Pages and quick actions">
+    {% for group,commands in command_groups %}
+    <section class="command-group" data-command-group aria-labelledby="command-group-{{ loop.index }}"><h3 id="command-group-{{ loop.index }}">{{ group }}</h3><div class="command-group-grid">
+      {% for endpoint,symbol,label,keywords,params in commands %}<a class="command-tile" href="{{ url_for(endpoint,**params) }}" data-command-item data-command-keywords="{{ keywords }}"><span class="command-tile-icon tone-{{ ['mint','sky','lavender','rose'][loop.index0%4] }}">{{ icon(symbol) }}</span><span class="command-tile-label">{{ label }}</span></a>{% endfor %}
+    </div></section>
+    {% endfor %}
+    <div class="command-no-match" data-command-no-match hidden><p>No matching pages. Maybe your transactions know?</p><a class="command-tile command-transaction-search" data-command-search hidden><span class="command-tile-icon tone-sky">{{ icon('search') }}</span><span class="command-tile-label" data-command-search-label></span></a></div>
+  </nav>
+  <div class="command-footer"><span><kbd>↑</kbd><kbd>↓</kbd> Navigate <kbd>Enter</kbd> Open</span><span data-command-count role="status" aria-live="polite">{{ command_groups|map(attribute=1)|map('length')|sum }} destinations</span></div>
+</dialog>

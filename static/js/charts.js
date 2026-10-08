@@ -100,7 +100,7 @@
     }
 
     function renderMonthlyChart(id, rows) {
-        const canvas = document.getElementById(id);
+        const canvas = typeof id === 'string' ? document.getElementById(id) : id;
         if (!canvas) return;
         const labels = rows.map((row) => new Intl.DateTimeFormat("en-GB", {month:"short", year:"2-digit"}).format(new Date(row.month + "-01T12:00:00")));
         const income = rows.map((row) => row.income || 0);
@@ -279,6 +279,11 @@
     }
 
     if (window.Chart) {
+        const renderEditorCharts = () => document.querySelectorAll('[data-editor-flow]').forEach(canvas => {
+            if (!Chart.getChart(canvas)) renderMonthlyChart(canvas, JSON.parse(canvas.dataset.editorFlow));
+        });
+        document.addEventListener('workspace-layout-change', renderEditorCharts);
+        renderEditorCharts();
         Chart.defaults.font.family = "'Segoe UI Variable Text', 'Segoe UI', ui-sans-serif, system-ui, sans-serif";
         Chart.defaults.color = palette.muted;
         initDashboard().catch(console.error);

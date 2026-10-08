@@ -1,14 +1,20 @@
 from money_manager.db.connection import get_db
+from money_manager.db.atomic import atomic
 from money_manager.utils.money import to_minor, money_value
 from money_manager.utils.dates import today_iso
 
 
-def list_loans(status=None):
+def list_loans(status=None, kind=None, direction=None):
     params = []
-    where = ""
+    conditions = []
     if status:
-        where = "WHERE l.status = ?"
+        conditions.append('l.status = ?')
         params.append(status)
+    if kind:
+        conditions.append('l.kind = ?'); params.append(kind)
+    if direction:
+        conditions.append('l.direction = ?'); params.append(direction)
+    where = 'WHERE ' + ' AND '.join(conditions) if conditions else ''
     return get_db().execute(
         f"""
         SELECT l.*,
@@ -45,6 +51,7 @@ def list_payments(loan_id):
 
 
 def create_loan(data):
+    data = _contact_data(data)
     _validate_loan_data(data)
     db = get_db()
     expected_total = money_value(data.get("expected_total_amount") or data["principal_amount"])
@@ -52,9 +59,9 @@ def create_loan(data):
         """
         INSERT INTO loans (
             direction, counterparty, principal_amount_minor, expected_total_amount_minor,
-            start_date, due_date, notes, status
+            start_date, due_date, notes, status, contact_id, kind
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'open')
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
         """,
         (
             data["direction"],
@@ -64,6 +71,7 @@ def create_loan(data):
             data.get("start_date") or today_iso(),
             data.get("due_date") or None,
             data.get("notes") or None,
+            data.get('contact_id'), data.get('kind','loan'),
         ),
     )
     db.commit()
@@ -71,6 +79,9 @@ def create_loan(data):
 
 
 def update_loan(loan_id, data):
+    old = get_loan(loan_id)
+    if not old: raise ValueError('Loan not found.')
+    data = _contact_data(dict(data,kind=data.get('kind',old['kind']),contact_id=data.get('contact_id',old['contact_id'])))
     _validate_loan_data(data, loan_id)
     db = get_db()
     expected_total = money_value(data.get("expected_total_amount") or data["principal_amount"])
@@ -78,7 +89,7 @@ def update_loan(loan_id, data):
         """
         UPDATE loans
         SET direction = ?, counterparty = ?, principal_amount_minor = ?, expected_total_amount_minor = ?,
-            start_date = ?, due_date = ?, notes = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+            start_date = ?, due_date = ?, notes = ?, status = ?, contact_id = ?, kind = ?, updated_at = CURRENT_TIMESTAMP
         WHERE id = ?
         """,
         (
@@ -90,6 +101,7 @@ def update_loan(loan_id, data):
             data.get("due_date") or None,
             data.get("notes") or None,
             data.get("status", "open"),
+            data.get('contact_id'), data.get('kind','loan'),
             loan_id,
         ),
     )
@@ -104,22 +116,12 @@ def delete_loan(loan_id):
 
 
 def add_payment(loan_id, data):
-    _validate_payment_data(loan_id, data)
     db = get_db()
-    db.execute(
-        """
-        INSERT INTO loan_payments (loan_id, date, amount_minor, notes)
-        VALUES (?, ?, ?, ?)
-        """,
-        (
-            loan_id,
-            data.get("date") or today_iso(),
-            to_minor(data["amount"]),
-            data.get("notes") or None,
-        ),
-    )
-    db.commit()
-    _refresh_status(loan_id)
+    with atomic(db):
+        _validate_payment_data(loan_id, data)
+        db.execute('INSERT INTO loan_payments (loan_id,date,amount_minor,notes) VALUES(?,?,?,?)',
+                   (loan_id,data.get('date') or today_iso(),to_minor(data['amount']),data.get('notes') or None))
+        _refresh_status(loan_id,commit=False)
 
 
 def delete_payment(payment_id):
@@ -150,7 +152,7 @@ def loan_summary():
     }
 
 
-def _refresh_status(loan_id):
+def _refresh_status(loan_id, commit=True):
     loan = get_loan(loan_id)
     if not loan:
         return
@@ -160,10 +162,18 @@ def _refresh_status(loan_id):
         "UPDATE loans SET status = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?",
         (status, loan_id),
     )
-    db.commit()
+    if commit: db.commit()
 
 
 def _validate_loan_data(data, loan_id=None):
+    from datetime import date
+    if data.get('kind','loan') not in {'loan','debt'}: raise ValueError('Choose a loan or a debt.')
+    try:
+        start = date.fromisoformat(data.get('start_date') or today_iso())
+        if data.get('due_date') and date.fromisoformat(data['due_date'])<start:
+            raise ValueError('Due date cannot be before the start date.')
+    except (ValueError,TypeError): raise ValueError('Enter valid start and due dates, with due date after start.') from None
+    if len(data.get('counterparty',''))>100: raise ValueError('Use a name of up to 100 characters.')
     direction = data.get("direction")
     principal = money_value(data.get("principal_amount") or 0)
     expected_total = money_value(data.get("expected_total_amount") or principal)
@@ -185,9 +195,25 @@ def _validate_loan_data(data, loan_id=None):
 
 
 def _validate_payment_data(loan_id, data):
+    from datetime import date
     amount = money_value(data.get("amount") or 0)
     loan = get_loan(loan_id)
     if not loan:
         raise ValueError("Loan does not exist.")
     if amount <= 0:
         raise ValueError("Payment amount must be greater than zero.")
+    if to_minor(amount)>to_minor(loan['outstanding_amount']): raise ValueError('Payment cannot exceed the outstanding amount.')
+    try:
+        payment_date = date.fromisoformat(data.get('date') or today_iso())
+        if payment_date>date.today() or payment_date<date.fromisoformat(loan['start_date']): raise ValueError()
+    except (ValueError,TypeError): raise ValueError('Record a payment date between the start date and today.') from None
+
+
+def _contact_data(data):
+    from money_manager.services.contacts import get_contact
+    data = dict(data)
+    if data.get('contact_id'):
+        contact = get_contact(data['contact_id'])
+        if not contact: raise ValueError('Choose an existing contact.')
+        data['counterparty'] = contact['name']
+    return data

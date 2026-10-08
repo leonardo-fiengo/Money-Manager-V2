@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template
 
-from money_manager.services.inbox import money_inbox
+from money_manager.services.cockpit import cockpit_summary
 
 
 bp = Blueprint("inbox", __name__, url_prefix="/inbox")
@@ -8,4 +8,4 @@ bp = Blueprint("inbox", __name__, url_prefix="/inbox")
 
 @bp.get("/")
 def index():
-    return render_template("inbox.html", items=money_inbox())
+    return render_template("inbox.html", items=cockpit_summary()['actions'])

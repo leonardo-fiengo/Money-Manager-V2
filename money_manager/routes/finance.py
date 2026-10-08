@@ -33,7 +33,7 @@ def rules():
                 return redirect(url_for('finance.rules'))
         except ValueError as exc:
             error = str(exc)
-    return render_template('finance/rules.html', rules=list_finance_rules(), preview=preview, values=request.form,
+    return render_template('finance/rules.html', rules=list_finance_rules(), preview=preview, values=request.form if request.method == 'POST' else request.args,
                            accounts=list_accounts(False), merchants=list_merchants(), categories=list_categories(), error=error), (400 if error else 200)
 
 

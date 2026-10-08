@@ -4,7 +4,6 @@
     <div class="title-copy"><p class="eyebrow">Between people</p><h1>{{ loan.counterparty }}</h1></div>
     <div class="inline-actions">
         <a class="button" href="{{ url_for('loans.edit', loan_id=loan.id) }}">Edit</a>
-        <a class="button" href="{{ url_for('loans.index') }}">Back</a>
     </div>
 </div>
 
@@ -18,12 +17,13 @@
 
 <section class="split">
     <div>
-        <h2>Add Payment</h2>
+        <h2>Record repayment</h2>
+        <p class="field-help">This updates the {{ loan.kind }} tracker. Record the same payment in Activity if it should also change an account balance.</p>
         <form class="form form-compact" method="post" action="{{ url_for('loans.payment', loan_id=loan.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <label>Date <input type="date" name="date" required></label>
-            <label>Amount <input type="number" step="0.01" min="0" name="amount" required></label>
+            <label>Date <input type="date" name="date" value="{{ today }}" min="{{ loan.start_date }}" max="{{ today }}" required></label>
+            <label>Amount <input type="number" step="0.01" min="0.01" max="{{ loan.outstanding_amount }}" name="amount" required></label>
             <label>Notes <input name="notes"></label>
-            <button>Save Payment</button>
+            <button {{ 'disabled' if loan.outstanding_amount<=0 else '' }}>Record repayment</button>
         </form>
     </div>
     <div>
@@ -33,6 +33,7 @@
             <tr><td>Due</td><td>{{ loan.due_date or "" }}</td></tr>
             <tr><td>Status</td><td>{{ loan.status }}</td></tr>
             <tr><td>Notes</td><td>{{ loan.notes or "" }}</td></tr>
+            {% if loan.contact_id %}<tr><td>Contact</td><td><a href="{{ url_for('contacts.edit',contact_id=loan.contact_id) }}">View contact</a> · <a href="{{ url_for('transactions.index',contact_id=loan.contact_id) }}">Payment activity</a></td></tr>{% endif %}
         </table></div>
     </div>
 </section>
@@ -58,4 +59,5 @@
         {% endfor %}
     </table></div>
 </section>
+<form method="post" action="{{ url_for('loans.delete',loan_id=loan.id) }}" data-confirm="Delete this {{ loan.kind }} and its repayment history permanently?"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="danger-link">Delete {{ loan.kind }}</button></form>
 {% endblock %}

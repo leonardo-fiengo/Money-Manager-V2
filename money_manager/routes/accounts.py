@@ -32,7 +32,9 @@ def _pot_sources():
 @bp.route("/")
 def index():
     from money_manager.utils.money import to_minor
-    accounts = account_balances()
+    from money_manager.services.cockpit import cockpit_summary
+    account_context = cockpit_summary()
+    accounts = account_context['accounts']
     active = [a for a in accounts if a["is_active"]]
     return render_template("accounts/index.html", accounts=active,
                            inactive_accounts=[a for a in accounts if not a["is_active"]],
@@ -141,7 +143,7 @@ def _account_form():
     except ValueError:
         raise ValueError("Choose a settlement account and a day from 1 to 28.") from None
     return (request.form.get("name", ""), kind,
-            money_value(request.form.get("opening_balance") or 0), target, day, request.form.get("logo") or None)
+            money_value(request.form.get("opening_balance") or 0), target, day, request.form.get("logo") or None,request.form.get('role','auto'))
 
 
 @bp.route("/new", methods=("GET", "POST"))
@@ -163,8 +165,8 @@ def edit(account_id):
         abort(404)
     if request.method == "POST":
         try:
-            name, kind, balance, target, day, logo = _account_form()
-            update_account(account_id, name, kind, balance, target, day, bool(request.form.get("is_active")), logo)
+            name, kind, balance, target, day, logo, role = _account_form()
+            update_account(account_id, name, kind, balance, target, day, bool(request.form.get("is_active")), logo,role)
         except (ValueError, IntegrityError) as error:
             message = "An account with that name already exists." if isinstance(error, IntegrityError) else str(error)
             return render_template("accounts/form.html", account=request.form, editing=True, editing_account_id=account_id, accounts=list_accounts(active_only=False), error=message), 400

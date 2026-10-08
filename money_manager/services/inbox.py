@@ -5,7 +5,7 @@ from money_manager.services.budgets import list_budgets
 from money_manager.services.planning import upcoming_overview
 
 
-def money_inbox(budgets=None, upcoming=None):
+def money_inbox(budgets=None, upcoming=None, include_transfer_matches=True):
     db = get_db()
     items = []
     recent_checks = db.execute("""
@@ -45,12 +45,20 @@ def money_inbox(budgets=None, upcoming=None):
             items.append(dict(kind='attention',title=f"{suggestion['name']} increased by €{suggestion['price_increase']:.2f}",detail='Review the last price and upcoming payment',href='recurring.subscriptions'))
     for row in db.execute("SELECT l.*,COALESCE((SELECT SUM(p.amount_minor) FROM loan_payments p WHERE p.loan_id=l.id),0) AS paid FROM loans l WHERE l.status='open' AND l.due_date<?",(date.today().isoformat(),)):
         if row['expected_total_amount_minor']>row['paid']:
-            items.append(dict(kind='attention',title=f"{row['counterparty']} loan is overdue",detail='Review repayments and the due date',href='loans.detail',params=dict(loan_id=row['id'])))
-    duplicates=db.execute("SELECT date,account_id,description,COUNT(*) AS count FROM ledger_transactions WHERE status='posted' AND type!='transfer' GROUP BY date,account_id,type,amount_eur_minor,COALESCE(merchant_id,0),COALESCE(description,'') HAVING COUNT(*)>1 ORDER BY date DESC LIMIT 10").fetchall()
+            items.append(dict(kind='attention',title=f"{row['counterparty']} {row['kind']} is overdue",detail='Review repayments and the due date',href='loans.detail',params=dict(loan_id=row['id'])))
+    deadline=(date.today()+timedelta(days=30)).isoformat()
+    for row in db.execute('''SELECT t.*,amount_minor-COALESCE((SELECT SUM(amount_minor) FROM tax_payments p WHERE p.tax_id=t.id),0) AS remaining
+        FROM taxes t WHERE due_date<=? ORDER BY due_date''',(deadline,)):
+        if row['remaining']>0:
+            items.append(dict(kind='attention' if row['due_date']<date.today().isoformat() else 'upcoming',
+                title=f"{row['name']} tax {'is overdue' if row['due_date']<date.today().isoformat() else 'is due on '+row['due_date']}",
+                detail='Review the deadline and recorded payments',href='taxes.detail',params=dict(tax_id=row['id'])))
+    duplicates=db.execute("SELECT date,account_id,description,COUNT(*) AS count FROM ledger_transactions WHERE status='posted' AND type!='transfer' GROUP BY date,account_id,type,amount_eur_minor,COALESCE(merchant_id,0),COALESCE(contact_id,0),COALESCE(description,'') HAVING COUNT(*)>1 ORDER BY date DESC LIMIT 10").fetchall()
     for row in duplicates:
         items.append(dict(kind='review',title=f"{row['count']} similar payments on {row['date']}",detail='Compare the entries before deleting anything',href='transactions.index',params=dict(account_id=row['account_id'],start=row['date'],end=row['date'])))
-    candidates=transfer_candidates()
-    if candidates: items.append(dict(kind='review',title=f'{len(candidates)} possible transfer matches',detail='Review both entries and merge matching movements',href='finance.transfers'))
+    if include_transfer_matches:
+        candidates=transfer_candidates()
+        if candidates: items.append(dict(kind='review',title=f'{len(candidates)} possible transfer matches',detail='Review both entries and merge matching movements',href='finance.transfers'))
     recent=(date.today()-timedelta(days=30)).isoformat()
     for row in db.execute("SELECT t.*,m.name AS merchant_name FROM ledger_transactions t LEFT JOIN merchants m ON m.id=t.merchant_id WHERE t.type='expense' AND t.status='posted' AND t.date>=? AND t.merchant_id IS NOT NULL AND t.amount_eur_minor>=5000 ORDER BY t.date DESC LIMIT 100",(recent,)):
         baseline=db.execute("SELECT COUNT(*) AS count,AVG(amount_eur_minor) AS average FROM ledger_transactions WHERE type='expense' AND status='posted' AND merchant_id=? AND date<?",(row['merchant_id'],recent)).fetchone()

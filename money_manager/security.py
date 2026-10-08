@@ -38,7 +38,9 @@ def init_security(app):
     @app.after_request
     def security_headers(response):
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        panel = request.endpoint in {'transactions.details', 'transactions.edit'} and request.args.get('panel') == '1'
+        response.headers["X-Frame-Options"] = 'SAMEORIGIN' if panel else 'DENY'
+        response.headers['Content-Security-Policy'] = "frame-ancestors 'self'" if panel else "frame-ancestors 'none'"
         response.headers["Referrer-Policy"] = "same-origin"
         if request.endpoint != "static":
             response.headers["Cache-Control"] = "no-store"

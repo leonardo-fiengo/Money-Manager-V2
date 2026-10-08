@@ -1,0 +1,34 @@
+{% from '_icons.html' import icon %}
+{% from '_cockpit_macros.html' import timeline, budget_pulse %}
+{% macro widget(key, editor=false) %}
+{% if key == 'position' %}
+<section class="today-position workspace-panel">
+  <div class="section-heading"><h2>Available after planned payments</h2><button type="button" class="quiet-button" data-balance-privacy aria-label="Hide balances" aria-pressed="false">{{ icon('eye') }}</button></div>
+  <div class="position-hero"><div><strong class="workspace-hero-number {{ 'negative' if cockpit.available<0 else '' }}" data-private-balance>{{ cockpit.available|money }}</strong><p>Next {{ cockpit.days }} days. Future income gets counted when it arrives.</p></div>
+    <svg class="money-garden" viewBox="0 0 180 100" aria-hidden="true"><path class="garden-cloud" d="M0 60q12-19 30-6q7-23 26-5q12 0 13 14H0Z"/><path class="garden-hill" d="M0 94q40-39 74-17q55-66 106 17Z"/><path class="garden-leaf" d="M99 52q-5-34 32-34q-1 28-32 34M98 65q-29 0-30-28q26 0 30 28"/><path class="garden-stem" d="M99 90V57q0-16 20-29M99 70 78 48" fill="none" stroke-width="2"/></svg>
+  </div>
+  <dl class="position-breakdown">{% for symbol,label,value in [('accounts','Total active balance',cockpit.total),('target','Reserved for goals',cockpit.reserved),('accounts','Card debt set aside',cockpit.card_debt),('calendar','Planned outgoing payments',cockpit.bills)] %}<div><dt>{{ icon(symbol) }}{{ label }}</dt><dd data-private-balance>{{ value|money }}</dd></div>{% endfor %}</dl>
+  <div class="position-footer"><a class="soft-link" href="{{ url_for('forecast.index',days=cockpit.days) }}">View forecast {{ icon('arrow') }}</a><button type="button" class="method-button" data-position-info aria-haspopup="dialog"><span aria-hidden="true">i</span>What's included?</button></div>
+</section>
+{% elif key == 'actions' %}
+<section class="today-actions workspace-panel {{ 'is-caught-up' if not cockpit.top_actions else '' }}">
+  <div class="section-heading"><h2>Your next moves</h2><span class="state-badge status-{{ cockpit.state }}">{{ cockpit.actions|length }} to review</span></div>
+  {% for action in cockpit.top_actions %}<a class="today-action-row status-{{ 'action' if action.kind=='attention' else 'info' if action.kind=='upcoming' else 'review' }}" href="{{ url_for(action.href,**(action.params or {})) }}"><span class="action-status-dot"></span><span><strong>{{ action.title }}</strong><small>{{ action.detail }}</small></span>{{ icon('right') }}</a>{% else %}
+  <div class="workspace-empty caught-up"><div class="calm-landscape" aria-hidden="true"><span class="calm-cloud cloud-left"></span><span class="calm-cloud cloud-right"></span><span class="calm-check">{{ icon('check') }}</span></div><strong>All caught up.</strong><p>Your money can have a quiet day for once.</p></div>{% endfor %}
+  <a class="review-all soft-link" href="{{ url_for('inbox.index') }}">Review all</a>
+</section>
+{% elif key == 'pulse' %}
+<div class="financial-pulse" aria-label="Period summary">
+  {% for symbol,label,amount,note,href,tone in [('up','Income',metrics.income,period.label,url_for('transactions.index',type='income',start=period.start,end=period.end),'mint'),('down','Spent',metrics.expenses,'Completed spending',url_for('transactions.index',type='expense',start=period.start,end=period.end),'rose'),('insights','Income left',metrics.income-metrics.expenses-metrics.investments,'After spending and investments',url_for('plan.index'),'sky')] %}
+  <a href="{{ href }}"><span class="pulse-icon tone-{{ tone }}">{{ icon(symbol) }}</span><div><span>{{ label }}</span><strong data-private-balance>{{ amount|money }}</strong><small>{{ note }}</small></div></a>{% endfor %}
+</div>
+{% elif key == 'upcoming' %}
+<section class="workspace-panel studio-upcoming"><div class="section-heading"><h2>Next {{ cockpit.days }} days</h2><a href="{{ url_for('plan.index',days=cockpit.days) }}">Open plan {{ icon('arrow') }}</a></div>{{ timeline(cockpit.timeline) }}</section>
+{% elif key == 'budgets' %}
+<section class="workspace-panel studio-budgets"><div class="section-heading"><h2>Budget pulse</h2><a href="{{ url_for('budgets.index') }}">Budget {{ icon('arrow') }}</a></div>{{ budget_pulse(cockpit.budgets) }}</section>
+{% elif key == 'accounts' %}
+<section class="workspace-panel studio-accounts"><div class="section-heading"><h2>Your accounts</h2><a href="{{ url_for('accounts.index') }}">Accounts {{ icon('arrow') }}</a></div><div class="today-account-rows">{% for account in cockpit.accounts if account.is_active %}<a href="{{ url_for('accounts.detail',account_id=account.id) }}" class="today-account-row"><span class="today-account-icon">{% if account.logo %}<img src="{{ account.logo }}" alt="">{% else %}{{ icon('accounts') }}{% endif %}</span><span><strong>{{ account.name }}</strong><small>{{ account.type.replace('_',' ')|title }}</small></span><span class="today-account-note">{{ account.next_movement.name ~ ' · ' ~ (account.next_movement.date|display_date('%d %b')) if account.next_movement else 'No upcoming activity' }}</span><strong data-private-balance>{{ account.balance|money }}</strong>{{ icon('right') }}</a>{% else %}<p>No active accounts yet.</p><a href="{{ url_for('accounts.new') }}">Add an account</a>{% endfor %}</div></section>
+{% elif key == 'cashflow' %}
+<section class="workspace-panel today-more studio-cashflow"><div class="section-heading"><h2>A little more perspective: cash flow</h2><span>Last 6 months</span></div><div class="chart-frame">{% if editor %}<canvas data-editor-flow='{{ flow_trend|tojson }}' role="img" aria-label="Six-month cash flow preview"></canvas>{% else %}<canvas id="dashboardMonthlyChart" data-flow-trend='{{ flow_trend|tojson }}' role="img" aria-label="Monthly cash flow over the last six months"></canvas>{% endif %}</div></section>
+{% endif %}
+{% endmacro %}

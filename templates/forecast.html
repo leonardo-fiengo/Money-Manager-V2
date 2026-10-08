@@ -1,5 +1,5 @@
 {% extends 'base.html' %}{% block content %}
-{% include '_insight_tabs.html' %}
+
 <div class="page-title"><div><p class="eyebrow">What happens next</p><h1>Cash-flow forecast</h1></div></div>
 {% if error %}<p class="form-error" role="alert">{{ error }}</p>{% endif %}
 <div class="forecast-periods">{% for days,label in [(30,'30 days'),(60,'60 days'),(90,'90 days'),(180,'6 months'),(365,'1 year')] %}<a class="{{ 'active' if forecast.days==days else '' }}" href="{{ url_for('forecast.index',days=days,scenario=forecast.scenario.id if forecast.scenario else none) }}">{{ label }}</a>{% endfor %}</div>

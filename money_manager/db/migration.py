@@ -13,7 +13,7 @@ def ensure_database(app):
         if db.execute('PRAGMA quick_check').fetchone()['quick_check']!='ok':
             raise ValueError('Database integrity check failed. Restore a checked backup before continuing.')
         tables={r['name'] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
-        if 'transactions' in tables and ('schema_migrations' not in tables or not db.execute("SELECT 1 FROM schema_migrations WHERE name='012_pot_sources'").fetchone()):
+        if 'transactions' in tables and ('schema_migrations' not in tables or not db.execute("SELECT 1 FROM schema_migrations WHERE name='014_people_and_obligations'").fetchone()):
             from money_manager.services.backup import create_snapshot
             create_snapshot('before-migration')
         db.executescript(SCHEMA)
@@ -49,6 +49,17 @@ def run_migrations(db):
     from money_manager.db.roadmap_migration import migrate_roadmap
     _run_once(db, "011_finance_workflows", migrate_roadmap)
     _run_once(db, "012_pot_sources", _add_pot_sources)
+    _run_once(db, "013_cockpit_profile", _add_cockpit_profile)
+    from money_manager.db.people_migration import migrate_people
+    _run_once(db, "014_people_and_obligations", migrate_people)
+
+
+def _add_cockpit_profile(db):
+    from money_manager.db.atomic import atomic
+    with atomic(db):
+        db.execute("ALTER TABLE accounts ADD COLUMN role TEXT NOT NULL DEFAULT 'auto' CHECK(role IN ('auto','everyday','savings'))")
+        db.execute("CREATE TABLE local_profile (id INTEGER PRIMARY KEY CHECK(id=1), display_name TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)")
+        db.execute("INSERT INTO local_profile(id) VALUES(1)")
 
 
 def _add_pot_sources(db):

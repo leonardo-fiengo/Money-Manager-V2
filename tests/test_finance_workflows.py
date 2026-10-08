@@ -78,6 +78,16 @@ class FinanceWorkflowsTest(unittest.TestCase):
         fresh=self.batch()
         self.assertFalse(preview_batch(fresh)[0]['duplicate'])
 
+    def test_old_import_snapshots_ignore_only_the_new_empty_contact_field(self):
+        batch=self.batch()
+        confirm_batch(batch,[0])
+        saved=json.loads(get_batch(batch)['original_json'])
+        for original in saved['transactions'].values(): original.pop('contact_id',None)
+        for details in saved['details'].values():
+            for settlement in details.get('settlements',[]): settlement.pop('contact_id',None)
+        get_db().execute('UPDATE import_batches SET original_json=? WHERE id=?',(json.dumps(saved),batch));get_db().commit()
+        self.assertEqual(rollback_batch(batch),1)
+
     def test_rollback_refuses_changed_details_atomically(self):
         b=self.batch(content=f'date,description,amount\n{date.today().isoformat()},First,-10\n{date.today().isoformat()},Second,-20\n')
         confirm_batch(b,[0,1])
@@ -225,7 +235,7 @@ class FinanceWorkflowsTest(unittest.TestCase):
         save_pot('Trip',500,50,target_date='2027-06-01')
         self.assertEqual(savings_summary()['pots'][0]['target_date'],'2027-06-01')
         save_widgets(['accounts'])
-        page=self.client.get('/').text
+        page=self.client.get('/?view=workspace').text
         self.assertNotIn('studio-cashflow',page);self.assertIn('studio-accounts',page)
         before=get_db().execute('SELECT COUNT(*) AS n FROM schema_migrations').fetchone()['n']
         run_migrations(get_db())

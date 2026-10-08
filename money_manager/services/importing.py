@@ -280,6 +280,11 @@ def rollback_batch(batch_id):
             raise ValueError('Only a completed import with an unchanged history can be rolled back.')
         saved=json.loads(batch['original_json'])
         originals=saved.get('transactions',saved)
+        # Pre-contact imports have no contact_id in their original snapshot.
+        # Normalize only that nullable field; real recipient edits still block rollback.
+        for original in originals.values(): original.setdefault('contact_id',None)
+        for details in saved.get('details',{}).values():
+            for settlement in details.get('settlements',[]): settlement.setdefault('contact_id',None)
         for tx_id,original in originals.items():
             current=db.execute('SELECT * FROM transactions WHERE id=?',(tx_id,)).fetchone()
             if current and current!=original:
